@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<launch>
+
+<!-- <include file="$(find ur5_gazebo)/launch/ur5_cubes.launch" /> -->
+
+    <node pkg="ur5_rl" name="ur5_gym" type="a2c_main.py" output="screen" />
+
+    <arg name="collisions_timestamp_topic_name" default="/isColliding"/>
+      <arg name="collision_names_topic_name" default="/collisionData"/>
+      <arg name="gazebo_physics_contact_topic_name" default="/gazebo/ur5_cubes/physics/contacts"/>
+      <arg name="robot_model_name" default="robot"/>
+      <arg name="actor_model_name" default="ur5_cubes"/>
+
+    <node pkg="contact_monitor" type="contactMonitor" name="contact" >
+      <param name="collisions_timestamp_topic_name" value="$(arg collisions_timestamp_topic_name)"/>
+      <param name="collision_names_topic_name" value="$(arg collision_names_topic_name)"/>
+      <param name="gazebo_physics_contact_topic_name" value="$(arg gazebo_physics_contact_topic_name)"/>
+      <param name="robot_model_name" value="$(arg robot_model_name)"/>
+      <param name="actor_model_name" value="$(arg actor_model_name)"/>
+     </node>
+
+</launch>

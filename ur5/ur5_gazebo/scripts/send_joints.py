@@ -18,7 +18,7 @@ def main():
 
     while pub.get_num_connections() < 1:
         rospy.logdebug("Waiting for connection")
-    pose.data = [0.0, 0.0, 0.0, 0.0, 0.0, -0.2]
+    pose.data = [ 0.0, -2.33, 1.57, 0.0, 0.0, -0.2]
 
     pub.publish(pose)
     print(pose)

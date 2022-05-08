@@ -116,7 +116,7 @@
       </link>
     </model>
 
-    <model name="cube2">
+    <!-- <model name="cube2">
       <pose>0.4 0 0.775 0 0 0</pose>
       <link name="link">
         <pose>0 0 0.025 0 0 0</pose>
@@ -228,7 +228,7 @@
           </material>
         </visual>
       </link>
-    </model>
+    </model> -->
 
   </world>
 
