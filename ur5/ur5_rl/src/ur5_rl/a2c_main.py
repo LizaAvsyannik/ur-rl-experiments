@@ -20,6 +20,7 @@ def read_params():
 
     controllers_list = rospy.get_param("/controllers_list")
     joint_names = rospy.get_param("/joint_names")
+    link_names = rospy.get_param("/link_names")
 
     joint_limits = {}
     joint_limits['lower'] =  list(map(lambda x: x * np.pi , rospy.get_param("/joint_limits/lower")))
@@ -31,7 +32,7 @@ def read_params():
     target_limits['target_size'] = rospy.get_param("/target_limits/target_size")
 
     return n_episodes, n_steps, controllers_list, \
-           joint_names, joint_limits, target_limits 
+           joint_names, link_names, joint_limits, target_limits 
 
 
 def main():
@@ -39,10 +40,10 @@ def main():
 
     rospy.logdebug('Reading parameters...')
     n_episodes, n_steps, controllers_list, \
-        joint_names, joint_limits, target_limits = read_params() 
+        joint_names, link_names, joint_limits, target_limits = read_params() 
     rospy.logdebug('Finished reading parameters')
 
-    kwargs = {'controllers_list': controllers_list, 'joint_limits': joint_limits, \
+    kwargs = {'controllers_list': controllers_list, 'joint_limits': joint_limits, 'link_names': link_names, 
               'target_limits': target_limits, 'pub_topic_name': f'{controllers_list[0]}/command'}
     env = gym.make('UR5EnvGoal-v0', **kwargs)
     
@@ -53,13 +54,13 @@ def main():
 
     rospy.loginfo('Starting training loop')
     for ep in range(n_episodes):
+        env.reset()
         trajectory = run_policy(env, policy, DEVICE, n_steps)
         step_results = a2c.step(trajectory)
-        print('[{}/{}] rewards: {:.3f}, value loss : {:.3f}, policy loss : {:.3f}, policy entropy : {:.3f}'.format(
+        rospy.loginfo('[{}/{}] rewards: {:.3f}, value loss : {:.3f}, policy loss : {:.3f}, policy entropy : {:.3f}'.format(
                  ep, n_episodes,torch.sum(trajectory['rewards']).item(), step_results['value_loss'], step_results['policy_loss'],  step_results['entropy']))
 
-    # env.reset()
-    # print(env.step([0.0, -2.33, 1.57, 0.0, 0.0, -0.2]))
+    env.close()
 
 
 if __name__ == '__main__':

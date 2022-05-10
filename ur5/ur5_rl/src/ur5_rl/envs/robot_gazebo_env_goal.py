@@ -48,7 +48,7 @@ class RobotGazeboEnv(gym.GoalEnv):
         rospy.logdebug("Is done")
         done = self._is_done()
         info = {}
-        reward = self._compute_reward(action, done)
+        reward, done = self._compute_reward(action, done)
         self._publish_reward_topic(reward, self.episode_num)
 
         return obs, reward, done, info

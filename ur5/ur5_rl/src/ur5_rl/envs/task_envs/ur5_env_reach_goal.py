@@ -11,10 +11,11 @@ import numpy as np
 
 
 class UR5EnvGoal(UR5Env):
-    def __init__(self, controllers_list, joint_limits, target_limits, pub_topic_name):
+    def __init__(self, controllers_list, link_names, joint_limits, target_limits, pub_topic_name):
         rospy.logdebug("Start UR5EnvGoal INIT...")
 
         UR5Env.__init__(self, controllers_list=controllers_list,
+                              link_names=link_names,
                               joint_limits=joint_limits,
                               target_limits=target_limits)
 
@@ -54,7 +55,7 @@ class UR5EnvGoal(UR5Env):
         """
         joints_array = self._generate_init_pose([joint_limits['lower'], joint_limits['upper']]) 
 
-        self._publisher.move_joints([0.0, -2.33, 1.57, 0.0, 0.0, -0.2])
+        self._publisher.move_joints(joints_array)
         rospy.logdebug(f'Moved joints to initial position {joints_array}')
         return self._is_done()
 
@@ -89,6 +90,8 @@ class UR5EnvGoal(UR5Env):
         """Calculates the reward to give based on the observations given.
         """
         effort_reward = np.linalg.norm(np.array(action))
+        done_coeff = 10
+
         if not done:
             effort_coeff = 1e-2
             print(self.end_effector_position)
@@ -96,21 +99,22 @@ class UR5EnvGoal(UR5Env):
             distance_reward = self.prev_distance - distance
             self.prev_distance = distance
             
-            if distance_reward > 0.0:
+            if distance_reward > 0.00:
                 rospy.logwarn("ENCREASE IN DISTANCE")
             else:
                 rospy.loginfo("DECREASE IN DISTANCE")
 
-            return distance_reward - effort_coeff * effort_reward
+            if distance > 0.05:
+                done_coeff = 1
+            else:
+                done = True
+                rospy.logdebug('Reached goal! HOORAY!')      
 
-        else:
-            if self.reached:
-                rospy.logdebug('Succesfully reached target')
-            
-            else: #collision happened
-                rospy.logwarn('Collsion happend, moving to next epsisode')
-                done_coeff = -100
-                return done_coeff * effort_reward
+            return done_coeff * (distance_reward - effort_coeff * effort_reward), done
+
+        else: # collision happened
+            rospy.logwarn('Collsion happend, moving to next epsisode')
+            return - done_coeff * effort_reward, done
 
        
     def _set_action(self, action):
@@ -129,8 +133,7 @@ class UR5EnvGoal(UR5Env):
     def _is_done(self):
         """Checks if episode done based on observations given.
         """
-        self.reached = False
-        return False
+        return self.check_current_collisions()
 
     def _generate_init_pose(self, limits):
         """ limits[0] - lower limits

@@ -57,7 +57,7 @@ class JointGroupPublisher(Pub):
     def move_joints(self, joints_array):
         pose = Float64MultiArray()
 
-        rate = rospy.Rate(1)
+        rate = rospy.Rate(10)
         while self._pub.get_num_connections() < 1:
             rospy.logdebug("Waiting for connection")
         pose.data = list(joints_array)

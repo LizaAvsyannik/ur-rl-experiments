@@ -15,6 +15,19 @@ joint_names:
   - wrist_2_joint
   - wrist_3_joint
 
+link_names:
+  - shoulder_link
+  - upper_arm_link
+  - forearm_link
+  - wrist_1_link
+  - wrist_2_link
+  - robotiq_85_left_finger_tip_link
+  - robotiq_85_right_finger_tip_link
+  - robotiq_85_left_knuckle_link
+  - robotiq_85_right_knuckle_link
+  - robotiq_85_right_inner_knuckle_link
+  - robotiq_85_left_inner_knuckle_link
+
 joint_limits: # in pi
   # always stick to the order as in joint_names
   lower:

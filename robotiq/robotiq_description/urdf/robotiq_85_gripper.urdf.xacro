@@ -69,6 +69,21 @@
       </inertial>
     </link> 
 
+     <gazebo reference="${prefix}robotiq_85_left_knuckle_link">
+      <sensor name="${prefix}robotiq_85_left_knuckle_link_collision_sensor" type="contact">
+        <selfCollide>true</selfCollide>
+        <always_on>true</always_on>
+        <update_rate>30</update_rate>
+        <contact>
+          <collision>${prefix}robotiq_85_left_knuckle_link_collision_sensor</collision>
+        </contact>
+        <plugin name="bumper_plugin" filename="libgazebo_ros_bumper.so">
+          <bumperTopicName>${prefix}robotiq_85_left_knuckle_link_collision_sensor</bumperTopicName>
+          <frameName>world</frameName>
+        </plugin>
+      </sensor>
+    </gazebo>
+
     <link name="${prefix}robotiq_85_right_knuckle_link">
       <visual>
         <geometry>
@@ -88,6 +103,21 @@
              izx = "0.000000" izy = "0.000000" izz = "0.000010" />
       </inertial>
     </link>
+
+    <gazebo reference="${prefix}robotiq_85_right_knuckle_link">
+      <sensor name="${prefix}robotiq_85_right_knuckle_link_collision_sensor" type="contact">
+        <selfCollide>true</selfCollide>
+        <always_on>true</always_on>
+        <update_rate>30</update_rate>
+        <contact>
+          <collision>${prefix}robotiq_85_right_knuckle_link_collision_sensor</collision>
+        </contact>
+        <plugin name="bumper_plugin" filename="libgazebo_ros_bumper.so">
+          <bumperTopicName>${prefix}robotiq_85_right_knuckle_link_collision_sensor</bumperTopicName>
+          <frameName>world</frameName>
+        </plugin>
+      </sensor>
+    </gazebo>
 
     <joint name="${prefix}robotiq_85_left_finger_joint" type="fixed">
       <parent link="${prefix}robotiq_85_left_knuckle_link"/>
@@ -120,7 +150,7 @@
              izx = "0.000000" izy = "0.000000" izz = "0.000020" />
       </inertial>
     </link> 
-
+  
     <link name="${prefix}robotiq_85_right_finger_link">
       <visual>
         <geometry>
@@ -178,6 +208,22 @@
              izx = "0.000000" izy = "0.000000" izz = "0.000035" />
       </inertial>
     </link>
+
+    <gazebo reference="${prefix}robotiq_85_left_inner_knuckle_link">
+      <sensor name="${prefix}robotiq_85_left_inner_knuckle_link_collision_sensor" type="contact">
+        <selfCollide>true</selfCollide>
+        <always_on>true</always_on>
+        <update_rate>30</update_rate>
+        <contact>
+          <collision>${prefix}robotiq_85_left_inner_knuckle_link_collision_sensor</collision>
+        </contact>
+        <plugin name="bumper_plugin" filename="libgazebo_ros_bumper.so">
+          <bumperTopicName>${prefix}robotiq_85_left_inner_knuckle_link_collision_sensor</bumperTopicName>
+          <frameName>world</frameName>
+        </plugin>
+      </sensor>
+    </gazebo>
+
     <link name="${prefix}robotiq_85_right_inner_knuckle_link">
       <visual>
         <geometry>
@@ -197,6 +243,21 @@
              izx = "0.000000" izy = "0.000000" izz = "0.000035" />
       </inertial>
     </link>
+
+    <gazebo reference="${prefix}robotiq_85_right_inner_knuckle_link">
+      <sensor name="${prefix}robotiq_85_right_inner_knuckle_link_collision_sensor" type="contact">
+        <selfCollide>true</selfCollide>
+        <always_on>true</always_on>
+        <update_rate>30</update_rate>
+        <contact>
+          <collision>${prefix}robotiq_85_right_inner_knuckle_link_collision_sensor</collision>
+        </contact>
+        <plugin name="bumper_plugin" filename="libgazebo_ros_bumper.so">
+          <bumperTopicName>${prefix}robotiq_85_right_inner_knuckle_link_collision_sensor</bumperTopicName>
+          <frameName>world</frameName>
+        </plugin>
+      </sensor>
+    </gazebo>
 
     <joint name="${prefix}robotiq_85_left_finger_tip_joint" type="continuous">
       <parent link="${prefix}robotiq_85_left_inner_knuckle_link"/>
@@ -237,6 +298,22 @@
       </inertial>
     </link> 
 
+
+    <gazebo reference="${prefix}robotiq_85_left_finger_tip_link">
+      <sensor name="${prefix}robotiq_85_left_finger_tip_link_collision_sensor" type="contact">
+        <selfCollide>true</selfCollide>
+        <always_on>true</always_on>
+        <update_rate>30</update_rate>
+        <contact>
+          <collision>${prefix}robotiq_85_left_finger_tip_link_collision_sensor</collision>
+        </contact>
+        <plugin name="bumper_plugin" filename="libgazebo_ros_bumper.so">
+          <bumperTopicName>${prefix}robotiq_85_left_finger_tip_link_collision_sensor</bumperTopicName>
+          <frameName>world</frameName>
+        </plugin>
+      </sensor>
+    </gazebo>
+
     <link name="${prefix}robotiq_85_right_finger_tip_link">
       <visual>
         <geometry>
@@ -257,6 +334,21 @@
       </inertial>
     </link>
     
+    <gazebo reference="${prefix}robotiq_85_right_finger_tip_link">
+      <sensor name="${prefix}robotiq_85_right_finger_tip_link_collision_sensor" type="contact">
+        <selfCollide>true</selfCollide>
+        <always_on>true</always_on>
+        <update_rate>30</update_rate>
+        <contact>
+          <collision>${prefix}robotiq_85_right_finger_tip_link_collision_sensor</collision>
+        </contact>
+        <plugin name="bumper_plugin" filename="libgazebo_ros_bumper.so">
+          <bumperTopicName>${prefix}robotiq_85_right_finger_tip_link_collision_sensor</bumperTopicName>
+          <frameName>world</frameName>
+        </plugin>
+      </sensor>
+    </gazebo>
+
     <!-- Improve grasping physics -->
     <gazebo reference="${prefix}robotiq_85_left_finger_tip_link">
       <kp>1000000.0</kp>

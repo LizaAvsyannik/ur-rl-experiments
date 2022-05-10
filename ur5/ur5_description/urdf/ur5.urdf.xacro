@@ -130,6 +130,21 @@
       </xacro:cylinder_inertial>
     </link>
 
+    <gazebo reference="${prefix}shoulder_link">
+      <sensor name="${prefix}shoulder_link_collision_sensor" type="contact">
+        <selfCollide>true</selfCollide>
+        <always_on>true</always_on>
+        <update_rate>30</update_rate>
+        <contact>
+          <collision>${prefix}upper_arm_link_collision</collision>
+        </contact>
+        <plugin name="bumper_plugin" filename="libgazebo_ros_bumper.so">
+          <bumperTopicName>${prefix}shoulder_link_collision_sensor</bumperTopicName>
+          <frameName>world</frameName>
+        </plugin>
+      </sensor>
+    </gazebo>
+
     <joint name="${prefix}shoulder_lift_joint" type="revolute">
       <parent link="${prefix}shoulder_link" />
       <child link = "${prefix}upper_arm_link" />
@@ -162,6 +177,21 @@
         <origin xyz="0.0 0.0 0.28" rpy="0 0 0" />
       </xacro:cylinder_inertial>
     </link>
+
+    <gazebo reference="${prefix}upper_arm_link">
+      <sensor name="${prefix}upper_arm_link_collision_sensor" type="contact">
+        <selfCollide>true</selfCollide>
+        <always_on>true</always_on>
+        <update_rate>30</update_rate>
+        <contact>
+          <collision>${prefix}upper_arm_link_collision</collision>
+        </contact>
+        <plugin name="bumper_plugin" filename="libgazebo_ros_bumper.so">
+          <bumperTopicName>${prefix}upper_arm_link_collision_sensor</bumperTopicName>
+          <frameName>world</frameName>
+        </plugin>
+      </sensor>
+    </gazebo>
 
     <joint name="${prefix}elbow_joint" type="revolute">
       <parent link="${prefix}upper_arm_link" />
@@ -196,6 +226,21 @@
       </xacro:cylinder_inertial>
     </link>
 
+    <gazebo reference="${prefix}forearm_link">
+      <sensor name="${prefix}forearm_link_collision_sensor" type="contact">
+        <selfCollide>true</selfCollide>
+        <always_on>true</always_on>
+        <update_rate>30</update_rate>
+        <contact>
+          <collision>${prefix}forearm_link_collision</collision>
+        </contact>
+        <plugin name="bumper_plugin" filename="libgazebo_ros_bumper.so">
+          <bumperTopicName>${prefix}forearm_link_collision_sensor</bumperTopicName>
+          <frameName>world</frameName>
+        </plugin>
+      </sensor>
+    </gazebo>
+    
     <joint name="${prefix}wrist_1_joint" type="revolute">
       <parent link="${prefix}forearm_link" />
       <child link = "${prefix}wrist_1_link" />
@@ -228,6 +273,21 @@
         <origin xyz="0.0 0.0 0.0" rpy="0 0 0" />
       </xacro:cylinder_inertial>
     </link>
+
+    <gazebo reference="${prefix}wrist_1_link">
+      <sensor name="${prefix}wrist_1_link_collision_sensor" type="contact">
+        <selfCollide>true</selfCollide>
+        <always_on>true</always_on>
+        <update_rate>30</update_rate>
+        <contact>
+          <collision>${prefix}wrist_1_link_collision_sensor</collision>
+        </contact>
+        <plugin name="bumper_plugin" filename="libgazebo_ros_bumper.so">
+          <bumperTopicName>${prefix}wrist_1_link_collision_sensor</bumperTopicName>
+          <frameName>world</frameName>
+        </plugin>
+      </sensor>
+    </gazebo>
 
     <joint name="${prefix}wrist_2_joint" type="revolute">
       <parent link="${prefix}wrist_1_link" />
@@ -262,6 +322,21 @@
       </xacro:cylinder_inertial>
     </link>
 
+    <gazebo reference="${prefix}wrist_2_link">
+      <sensor name="${prefix}wrist_2_link_collision_sensor" type="contact">
+        <selfCollide>true</selfCollide>
+        <always_on>true</always_on>
+        <update_rate>30</update_rate>
+        <contact>
+          <collision>${prefix}wrist_2_link_collision_sensor</collision>
+        </contact>
+        <plugin name="bumper_plugin" filename="libgazebo_ros_bumper.so">
+          <bumperTopicName>${prefix}wrist_2_link_collision_sensor</bumperTopicName>
+          <frameName>world</frameName>
+        </plugin>
+      </sensor>
+    </gazebo>
+
     <joint name="${prefix}wrist_3_joint" type="revolute">
       <parent link="${prefix}wrist_2_link" />
       <child link = "${prefix}wrist_3_link" />
@@ -294,6 +369,21 @@
         <origin xyz="0.0 0.0 0.0" rpy="0 0 0" />
       </xacro:cylinder_inertial>
     </link>
+
+    <gazebo reference="${prefix}wrist_3_link">
+      <sensor name="${prefix}wrist_3_link_collision_sensor" type="contact">
+        <selfCollide>true</selfCollide>
+        <always_on>true</always_on>
+        <update_rate>30</update_rate>
+        <contact>
+          <collision>${prefix}wrist_3_link_collision_sensor</collision>
+        </contact>
+        <plugin name="bumper_plugin" filename="libgazebo_ros_bumper.so">
+          <bumperTopicName>${prefix}wrist_3_link_collision_sensor</bumperTopicName>
+          <frameName>world</frameName>
+        </plugin>
+      </sensor>
+    </gazebo>
 
     <joint name="${prefix}ee_fixed_joint" type="fixed">
       <parent link="${prefix}wrist_3_link" />
