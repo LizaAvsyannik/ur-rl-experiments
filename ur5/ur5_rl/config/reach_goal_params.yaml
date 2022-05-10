@@ -1,0 +1,47 @@
+# Algortihm Parameters
+n_episodes: 1
+n_steps: 3
+
+controllers_list: # first always a controllers with which we will move the robot
+  - joint_group_position_controller
+  - joint_state_controller
+  - gripper_controller
+
+joint_names:
+  - shoulder_pan_joint
+  - shoulder_lift_joint
+  - elbow_joint
+  - wrist_1_joint
+  - wrist_2_joint
+  - wrist_3_joint
+
+joint_limits: # in pi
+  # always stick to the order as in joint_names
+  lower:
+    - -1.0
+    - -0.625
+    - -1.0
+    - -1.0
+    - -1.0
+    - -1.0
+  upper:
+    - 1.0
+    - -0.375
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+
+target_limits:
+  lower:
+    - 0.275
+    - -0.435
+    - 0.775
+  upper:
+    - 0.7
+    - 0.435
+    - 0.775
+  target_size:
+    - 0.05
+    - 0.05
+    - 0.05

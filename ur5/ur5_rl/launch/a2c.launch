@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<launch>
+
+<!-- <include file="$(find ur5_gazebo)/launch/ur5_cubes.launch" /> -->
+    <rosparam command="load" file="$(find ur5_rl)/config/reach_goal_params.yaml" />
+
+    <node pkg="ur5_rl" name="ur5_gym" type="a2c_main.py" output="screen" />
+
+</launch>

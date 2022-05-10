@@ -3,8 +3,8 @@ from ur5_rl.envs import RobotGazeboEnv
 from ur5_rl.envs import JointGroupPublisher
 from gazebo_msgs.msg import LinkStates, ModelState
 from sensor_msgs.msg import JointState
-from ur5_rl.envs.ur_setups import setups
-from ur5_rl.envs import ur_utils
+from ur5_rl.envs.utils.ur_setups import setups
+from ur5_rl.envs.utils import ur_utils
 
 
 class UR5Env(RobotGazeboEnv):
