@@ -38,7 +38,7 @@ class A2CModel(nn.Module):
 
 
 class A2CPolicy:
-    def __init__(self, model, device, eps=10e-6):
+    def __init__(self, model, device, eps=1e-7):
         self.__model = model
         self.device = device
         self.eps = eps
@@ -50,7 +50,6 @@ class A2CPolicy:
     def act(self, inputs):
         # Implement policy by calling model, sampling actions and computing their log probs
         # Should return a dict containing keys ['actions', 'logits', 'log_probs', 'values'].
-        # inputs = torch.Tensor(inputs)
         mus, vars, values = self.__model(inputs.to(self.device))
         vars = torch.square(vars)
         vars =  torch.where(vars > 0, vars, vars + self.eps)

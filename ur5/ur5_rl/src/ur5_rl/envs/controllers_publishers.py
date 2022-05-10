@@ -39,7 +39,7 @@ class JointGroupPublisher(Pub):
         Checks that all the publishers are working
         :return:
         """
-        rate = rospy.Rate(1)  # 1hz
+        rate = rospy.Rate(120)  # 1hz
         while (self._pub.get_num_connections() == 0):
             rospy.logdebug(
                 "No subscribers to joint_group_position_controller yet so we wait and try again")
@@ -57,7 +57,7 @@ class JointGroupPublisher(Pub):
     def move_joints(self, joints_array):
         pose = Float64MultiArray()
 
-        rate = rospy.Rate(10)
+        rate = rospy.Rate(120)
         while self._pub.get_num_connections() < 1:
             rospy.logdebug("Waiting for connection")
         pose.data = list(joints_array)

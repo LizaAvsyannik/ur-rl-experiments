@@ -1,5 +1,7 @@
  #!/usr/bin/env python3
 
+import wandb
+
 import gym
 import rospy
 import numpy as np
@@ -7,16 +9,23 @@ import torch
 from torch import optim
 from ur5_rl.envs.task_envs import UR5EnvGoal
 
-from ur5_rl.algorithms.a2c import A2C, A2CModel, A2CPolicy
+from ur5_rl.algorithms.a2c import A2C, A2CModel, A2CPolicy, MergeTimeBatch
 from ur5_rl.run_rl_utils import run_policy
 
-DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
-obs_dim = 15 
-n_act = 6 
+# DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
+DEVICE = 'cpu'
+obs_dim = 15
+n_act = 6
+
+WANDB_RUN_NAME = 'my-lapka-first-steps'
+WANDB_MODEL_CHECKPOINT_NAME = 'my-lapka-first-checkpoint'
 
 def read_params():
-    n_episodes = rospy.get_param("/n_episodes")
-    n_steps = rospy.get_param("/n_steps")
+    config = {}
+    config['n_episodes'] = rospy.get_param("/n_episodes")
+    config['n_steps_per_episode'] = rospy.get_param("/n_steps_per_episode")
+    config['learning_rate'] = rospy.get_param("/learning_rate")
+    config['ckpt_freq'] = rospy.get_param("/ckpt_freq")
 
     controllers_list = rospy.get_param("/controllers_list")
     joint_names = rospy.get_param("/joint_names")
@@ -31,7 +40,7 @@ def read_params():
     target_limits['upper'] = rospy.get_param("/target_limits/upper")
     target_limits['target_size'] = rospy.get_param("/target_limits/target_size")
 
-    return n_episodes, n_steps, controllers_list, \
+    return config, controllers_list, \
            joint_names, link_names, joint_limits, target_limits 
 
 
@@ -39,9 +48,10 @@ def main():
     rospy.init_node('ur_gym', anonymous=False, log_level=rospy.DEBUG)
 
     rospy.logdebug('Reading parameters...')
-    n_episodes, n_steps, controllers_list, \
-        joint_names, link_names, joint_limits, target_limits = read_params() 
+    config, controllers_list, joint_names, link_names, joint_limits, target_limits = read_params()
     rospy.logdebug('Finished reading parameters')
+
+    wandb.init(project="my-rl-lapka", entity="liza-avsyannik", name=WANDB_RUN_NAME, config=config)
 
     kwargs = {'controllers_list': controllers_list, 'joint_limits': joint_limits, 'link_names': link_names, 
               'target_limits': target_limits, 'pub_topic_name': f'{controllers_list[0]}/command'}
@@ -49,17 +59,31 @@ def main():
     
     model = A2CModel(obs_dim, n_act).to(DEVICE)
     policy = A2CPolicy(model, DEVICE)
-    optimizer = optim.Adam(model.parameters())
+    optimizer = optim.Adam(model.parameters(), lr=wandb.config.learning_rate)
     a2c = A2C(policy, optimizer)
+    postprocessor = MergeTimeBatch(DEVICE)
 
     rospy.loginfo('Starting training loop')
-    for ep in range(n_episodes):
+    for ep in range(wandb.config.n_episodes):
         env.reset()
-        trajectory = run_policy(env, policy, DEVICE, n_steps)
+        trajectory = run_policy(env, policy, postprocessor, wandb.config.n_steps_per_episode)
         step_results = a2c.step(trajectory)
-        rospy.loginfo('[{}/{}] rewards: {:.3f}, value loss : {:.3f}, policy loss : {:.3f}, policy entropy : {:.3f}'.format(
-                 ep, n_episodes,torch.sum(trajectory['rewards']).item(), step_results['value_loss'], step_results['policy_loss'],  step_results['entropy']))
+        wandb.log({'Number of steps': trajectory['rewards'].shape[0],
+                   'Mean reward': torch.mean(trajectory['rewards']),
+                   'Value loss': step_results['value_loss'],
+                   'Policy loss': step_results['policy_loss'],
+                   'Policy entropy': step_results['entropy']},
+                   step=ep)
 
+        if (ep + 1) % wandb.config.ckpt_freq == 0:
+            model_artifact = wandb.Artifact(name=WANDB_MODEL_CHECKPOINT_NAME,
+                                            type='model')
+            torch.save(model, f'{ep}.pth')
+            model_artifact.add_file(f'{ep}.pth')
+            wandb.log_artifact(model_artifact)
+
+
+    wandb.finish()
     env.close()
 
 

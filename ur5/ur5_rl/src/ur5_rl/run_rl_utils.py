@@ -1,15 +1,13 @@
 import torch
-from ur5_rl.algorithms.a2c import MergeTimeBatch
 
 
-def run_episode(env, policy, device, n_steps=2):
+def run_episode(env, policy, n_steps=2):
     obs = env.reset()
     trajectory = {'observations': [], 'actions': [], 'log_probs': [], 'entropy': [],  'values': [],
                   'rewards': [], 'done': []}
-    done = False
     
     for _ in range(n_steps):
-        obs = torch.FloatTensor(obs).unsqueeze(0).to(device)  # (1, obs_dim)
+        obs = torch.FloatTensor(obs).unsqueeze(0)  # (1, obs_dim))
         step_results = {'observations': obs}
 
         policy_result = policy.act(obs)
@@ -38,11 +36,10 @@ def add_value_targets(trajectory, gamma=0.99): # compute the returns
     trajectory['value_targets'] = targets
 
 
-def run_policy(env, policy, device, n_steps=2):
+def run_policy(env, policy, postprocessor, n_steps=2):
     total_steps = 0
-    merger = MergeTimeBatch(device)
-    trajectory = run_episode(env, policy, device, n_steps=n_steps)
+    trajectory = run_episode(env, policy, n_steps=n_steps)
     total_steps += len(trajectory['observations'])
     add_value_targets(trajectory)
-    merger(trajectory)
+    postprocessor(trajectory)
     return trajectory
