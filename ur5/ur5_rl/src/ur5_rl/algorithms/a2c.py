@@ -53,12 +53,13 @@ class A2CPolicy:
         mus, vars, values = self.__model(inputs.to(self.device))
         vars = torch.square(vars)
         vars =  torch.where(vars > 0, vars, vars + self.eps)
-        cov = torch.empty(inputs.shape[0], self.__model.n_actions, self.__model.n_actions)
+        cov = torch.empty(inputs.shape[0], self.__model.n_actions, self.__model.n_actions).to(self.device)
         for i in range(inputs.shape[0]):
             cov[i] = torch.diag(vars[i])
         dist = MultivariateNormal(mus, cov)
+        print(dist)
         actions = dist.sample()
-        return {'actions': np.array(actions),
+        return {'actions': actions.detach().cpu().numpy(),
                 'log_probs': dist.log_prob(actions),
                 'entropy': dist.entropy(),
                 'values': values}

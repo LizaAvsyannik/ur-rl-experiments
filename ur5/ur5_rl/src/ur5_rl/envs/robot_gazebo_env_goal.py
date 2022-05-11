@@ -142,3 +142,4 @@ class RobotGazeboEnv(gym.GoalEnv):
         and extract information from the simulation.
         """
         raise NotImplementedError()
+        

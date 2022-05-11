@@ -91,3 +91,4 @@ class GazeboConnection():
                                          self._physics_properties.ode_config)
         except rospy.ServiceException:
             rospy.logerr("/change_gravity_zero service call failed")
+            
