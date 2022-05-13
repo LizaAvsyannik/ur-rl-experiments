@@ -8,8 +8,9 @@ gym.envs.register(
     id='UR5EnvGoal-v0',
     entry_point='ur5_rl.envs.task_envs:UR5EnvGoal',     
     kwargs = {'controllers_list': [], 
-     'link_names': [], 
+     'joint_names': [],
      'joint_limits': [], 
+     'link_names': [],
      'target_limits': [], 
      'pub_topic_name': ''}
 )

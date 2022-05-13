@@ -1,7 +1,7 @@
 import rospy
 from std_srvs.srv import Empty
-from gazebo_msgs.srv import GetPhysicsProperties, SetPhysicsProperties
-from std_msgs.msg import Float64
+from gazebo_msgs.srv import GetPhysicsProperties, SetPhysicsProperties, \
+                            GetModelState, DeleteModel, SpawnModel, SetModelConfiguration
 from geometry_msgs.msg import Vector3
 
 
@@ -19,6 +19,17 @@ class GazeboConnection():
         self._pause = rospy.ServiceProxy('/gazebo/pause_physics', Empty)
         self._reset_simulation_proxy = rospy.ServiceProxy('/gazebo/reset_simulation', Empty)
         self._reset_world_proxy = rospy.ServiceProxy('/gazebo/reset_world', Empty)
+
+        # to get robot's initial position
+        self._get_model_state = rospy.ServiceProxy(
+            "/gazebo/get_model_state", GetModelState)
+        self._delete_model = rospy.ServiceProxy(
+            "/gazebo/delete_model", DeleteModel)
+        self._spawn_urdf_model = rospy.ServiceProxy(
+            "/gazebo/spawn_urdf_model", SpawnModel)
+        self._set_model_configuration= rospy.ServiceProxy(
+            "/gazebo/set_model_configuration", SetModelConfiguration)
+
 
         # We always pause the simulation, important for legged robots learning
         self.pauseSim()
@@ -92,3 +103,30 @@ class GazeboConnection():
         except rospy.ServiceException:
             rospy.logerr("/change_gravity_zero service call failed")
             
+    def get_model_state(self, args):
+        rospy.wait_for_service('/gazebo/get_model_state')
+        try:
+            return self._get_model_state(*args)
+        except rospy.ServiceException as e:
+            rospy.logerr("/gazebo/get_model_state service call failed")
+
+    def delete_model(self, args):
+        rospy.wait_for_service('/gazebo/delete_model')
+        try:
+            self._delete_model(args)
+        except rospy.ServiceException as e:
+            rospy.logerr("/gazebo/delete_model service call failed")
+
+    def spawn_urdf_model(self, args):
+        rospy.wait_for_service('/gazebo/spawn_urdf_model')
+        try:
+            self._spawn_urdf_model(*args)
+        except rospy.ServiceException as e:
+            rospy.logerr("/gazebo/spawn_urdf_model service call failed")
+
+    def set_model_configuration(self, args):
+        rospy.wait_for_service('/gazebo/set_model_configuration')
+        try:
+            self._set_model_configuration(*args)
+        except rospy.ServiceException as e:
+            rospy.logerr("/gazebo/set_model_configuration service call failed")

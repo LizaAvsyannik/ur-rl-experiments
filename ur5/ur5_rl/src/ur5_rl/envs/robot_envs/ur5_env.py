@@ -1,18 +1,17 @@
 import rospy
 from ur5_rl.envs import RobotGazeboEnv
-from ur5_rl.envs import JointGroupPublisher
 from gazebo_msgs.msg import LinkStates, ModelState, ContactsState
 from sensor_msgs.msg import JointState
-from ur5_rl.envs.utils import ur_utils
 
 
 class UR5Env(RobotGazeboEnv):
-    def __init__(self, controllers_list, link_names, joint_limits, target_limits):
+    def __init__(self, controllers_list, joint_names, joint_limits, link_names, target_limits):
         rospy.logdebug("Start UR5Env INIT...")
         
-        self.link_names = link_names
         self.controllers_list = controllers_list
+        self.joint_names = joint_names
         self.joint_limits = joint_limits
+        self.link_names = link_names
         self.target_limits = target_limits 
 
         RobotGazeboEnv.__init__(self, controllers_list=self.controllers_list)
@@ -21,12 +20,15 @@ class UR5Env(RobotGazeboEnv):
         self.gazebo.unpauseSim()
 
         # Subscribe link and joint states 
+        # to get target position
         self._get_link_states = rospy.Subscriber("/gazebo/link_states", LinkStates,
                             self.link_state_callback, queue_size=1)
 
+        # to get joint positions
         self._get_joint_states = rospy.Subscriber("/joint_states", JointState,
                             self.joints_state_callback, queue_size=1)
 
+        # to set target position
         self._set_model_state = rospy.Publisher("/gazebo/set_model_state", ModelState, queue_size=1)
 
         self._collision_sensors = [rospy.Subscriber(f"/{name}_collision_sensor", ContactsState,

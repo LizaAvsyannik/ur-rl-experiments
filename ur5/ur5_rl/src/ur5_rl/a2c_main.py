@@ -96,7 +96,7 @@ def main():
 
     wandb.init(project="my-rl-lapka", entity="liza-avsyannik", name=WANDB_RUN_NAME, config=config)
 
-    kwargs = {'controllers_list': controllers_list, 'joint_limits': joint_limits, 'link_names': link_names, 
+    kwargs = {'controllers_list': controllers_list, 'joint_names': joint_names, 'joint_limits': joint_limits, 'link_names': link_names, 
               'target_limits': target_limits, 'pub_topic_name': f'{controllers_list[0]}/command'}
     env = gym.make('UR5EnvGoal-v0', **kwargs)
     
@@ -109,25 +109,25 @@ def main():
     rospy.loginfo('Starting training loop')
     for ep in range(wandb.config.n_episodes):
         env.reset()
-        trajectory = run_policy(env, policy, postprocessor, wandb.config.n_steps_per_episode)
-        step_results = a2c.step(trajectory)
-        wandb.log({'Number of steps': trajectory['rewards'].shape[0],
-                   'Mean reward': torch.mean(trajectory['rewards']),
-                   'Value loss': step_results['value_loss'],
-                   'Policy loss': step_results['policy_loss'],
-                   'Policy entropy': step_results['entropy']},
-                   step=ep)
+    #     trajectory = run_policy(env, policy, postprocessor, wandb.config.n_steps_per_episode)
+    #     step_results = a2c.step(trajectory)
+    #     wandb.log({'Number of steps': trajectory['rewards'].shape[0],
+    #                'Mean reward': torch.mean(trajectory['rewards']),
+    #                'Value loss': step_results['value_loss'],
+    #                'Policy loss': step_results['policy_loss'],
+    #                'Policy entropy': step_results['entropy']},
+    #                step=ep)
 
-        if (ep + 1) % wandb.config.ckpt_freq == 0:
-            model_artifact = wandb.Artifact(name=WANDB_MODEL_CHECKPOINT_NAME,
-                                            type='model')
-            torch.save(model, f'{ep}.pth')
-            model_artifact.add_file(f'{ep}.pth')
-            wandb.log_artifact(model_artifact)
+    #     if (ep + 1) % wandb.config.ckpt_freq == 0:
+    #         model_artifact = wandb.Artifact(name=WANDB_MODEL_CHECKPOINT_NAME,
+    #                                         type='model')
+    #         torch.save(model, f'{ep}.pth')
+    #         model_artifact.add_file(f'{ep}.pth')
+    #         wandb.log_artifact(model_artifact)
 
 
-    wandb.finish()
-    env.close()
+    # wandb.finish()
+    # env.close()
 
 
 if __name__ == '__main__':

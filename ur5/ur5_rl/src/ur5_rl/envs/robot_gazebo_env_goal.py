@@ -57,10 +57,10 @@ class RobotGazeboEnv(gym.GoalEnv):
         rospy.logdebug("Reseting RobotGazeboEnvironment")
         rospy.logdebug("Entered reset")
         self._reset_sim()
-        self._update_episode()
-        obs = self._get_obs()
-        self._init_env_variables()
-        return obs
+        # self._update_episode()
+        # obs = self._get_obs()
+        # self._init_env_variables()
+        # return obs
 
     def close(self):
         """
