@@ -26,7 +26,7 @@
        something strange when unpausing it
   -->
   <node name="spawn_gazebo_model" pkg="gazebo_ros" type="spawn_model"
-        args="-urdf -param robot_description -model robot -z 0.594
+        args="-urdf -param robot_description -model robot -z 1.0
               -J shoulder_lift_joint -1.8
               -J elbow_joint 1.0"
         output="screen" />

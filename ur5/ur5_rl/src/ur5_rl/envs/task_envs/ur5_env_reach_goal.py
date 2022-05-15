@@ -9,8 +9,6 @@ import torch
 from torch.distributions.uniform import Uniform
 import numpy as np
 
-import time
-
 
 class UR5EnvGoal(UR5Env):
     def __init__(self, controllers_list, link_names, joint_limits, target_limits, pub_topic_name):
@@ -36,10 +34,7 @@ class UR5EnvGoal(UR5Env):
             rospy.logdebug("Pausing SIM...")
             self.gazebo.pauseSim()
             rospy.logdebug("Reset SIM...")
-            self.gazebo.resetSimulation()
             self.gazebo.resetWorld()
-            rospy.logdebug("Checking Init Pose for Target...")
-            self._set_init_target_pose()
             rospy.logdebug("Unpausing Sim...")
             self.gazebo.unpauseSim()
             rospy.logdebug("Reseting Controllers...")
@@ -48,10 +43,12 @@ class UR5EnvGoal(UR5Env):
             self._publisher.check_publishers_connection()
             rospy.logdebug("Checking All Systems...")
             self._check_all_systems_ready()
+            rospy.logdebug("Checking Init Pose for Target...")
+            self._set_init_target_pose()
             rospy.logdebug("Setting Init Pose for Arm...")
             is_collided = self._set_init_pose(self.joint_limits)
-        
-    
+            
+
     def _set_init_pose(self, joint_limits):
         """Sets the Robot in its init pose
         """
@@ -64,21 +61,19 @@ class UR5EnvGoal(UR5Env):
 
     def _set_init_target_pose(self):
         # assume that cubes are lying on the table and z is unchangable
-        target_coords = self._generate_init_pose([self.target_limits['lower'][:2], self.target_limits['upper'][:2]])
+        target_coords = self._generate_point_in_sphere(self.target_limits['radius'])
         
         target_pose = Pose()
         target_point = Point()
         target_point.x = target_coords[0]
         target_point.y = target_coords[1]
-        # assum lower and upper for z are equal
-        target_point.z = self.target_limits['lower'][2]
+        target_point.z = target_coords[2]
         target_pose.position = target_point
         
         link_state_msg = ModelState(model_name='cube1', pose=target_pose)
         self._set_model_state.publish(link_state_msg)
         rospy.logdebug(f'Moved target to initial position {target_pose.position}')
 
-        target_coords.append(self.target_limits['lower'][2])
         self.target_position = target_coords
         self.target_position[2] += 2 * self.target_limits['target_size'][2]
 
@@ -135,7 +130,13 @@ class UR5EnvGoal(UR5Env):
     def _is_done(self):
         """Checks if episode done based on observations given.
         """
-        return self.check_current_collisions()
+        new_target_position = self.gazebo.get_model_state(('cube1', 'world')).pose.position
+        
+        if np.isclose(new_target_position.z, 0.0):
+            return True
+            
+        collision = self.check_current_collisions() 
+        return collision 
 
     def _generate_init_pose(self, limits):
         """ limits[0] - lower limits
@@ -144,3 +145,17 @@ class UR5EnvGoal(UR5Env):
         distrubtion = Uniform(torch.Tensor(limits[0]), 
                                   torch.Tensor(limits[1]))
         return list(distrubtion.sample().detach().cpu().numpy())
+
+    def _generate_point_in_sphere(self, radius):
+        r = radius * np.sqrt(np.random.uniform())
+        theta = np.random.uniform() * 2 * np.pi
+        phi = np.random.uniform() * np.pi
+
+        x = r * np.sin(phi) * np.cos(theta)
+        y = r * np.sin(phi) * np.sin(theta)
+        # assume robot is located at (0, 0, radius)
+        z = radius + r * np.cos(phi)
+
+        return [x, y, z]
+ 
+

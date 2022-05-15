@@ -32,30 +32,25 @@ link_names:
 
 joint_limits: # in pi
   # always stick to the order as in joint_names
+  # limit elbow_joint in order to avoid self-collisio
   lower:
-    - -1.0
-    - -0.625
-    - -1.0
-    - -1.0
-    - -1.0
-    - -1.0
+    - -2.0
+    - -2.0
+    - -0.75
+    - -2.0
+    - -2.0
+    - -2.0
   upper:
-    - 1.0
-    - -0.375
-    - 1.0
-    - 1.0
-    - 1.0
-    - 1.0
+    - 2.0
+    - 2.0
+    - 0.75
+    - 2.0
+    - 2.0
+    - 2.0
 
 target_limits:
-  lower:
-    - 0.275
-    - -0.435
-    - 0.775
-  upper:
-    - 0.7
-    - 0.435
-    - 0.775
+  # we put target inside a circle of robot's reach
+  radius: 1.0
   target_size:
     - 0.05
     - 0.05

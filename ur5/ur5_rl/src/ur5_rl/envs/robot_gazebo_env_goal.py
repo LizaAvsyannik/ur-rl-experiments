@@ -127,7 +127,7 @@ class RobotGazeboEnv(gym.GoalEnv):
         """
         raise NotImplementedError()
 
-    def _is_done(self, observations):
+    def _is_done(self):
         """Indicates whether or not the episode is done ( the robot has fallen for example).
         """
         raise NotImplementedError()

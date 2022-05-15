@@ -35,8 +35,7 @@ def read_params():
     joint_limits['upper'] =  list(map(lambda x: x * np.pi , rospy.get_param("/joint_limits/upper")))
 
     target_limits  = {}
-    target_limits['lower'] = rospy.get_param("/target_limits/lower")
-    target_limits['upper'] = rospy.get_param("/target_limits/upper")
+    target_limits['radius'] = rospy.get_param("/target_limits/radius")
     target_limits['target_size'] = rospy.get_param("/target_limits/target_size")
 
     return config, controllers_list, \

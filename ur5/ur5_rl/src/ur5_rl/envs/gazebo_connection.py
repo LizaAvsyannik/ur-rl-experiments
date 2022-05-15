@@ -1,6 +1,6 @@
 import rospy
 from std_srvs.srv import Empty
-from gazebo_msgs.srv import GetPhysicsProperties, SetPhysicsProperties
+from gazebo_msgs.srv import GetPhysicsProperties, SetPhysicsProperties, GetModelState
 from std_msgs.msg import Float64
 from geometry_msgs.msg import Vector3
 
@@ -19,6 +19,9 @@ class GazeboConnection():
         self._pause = rospy.ServiceProxy('/gazebo/pause_physics', Empty)
         self._reset_simulation_proxy = rospy.ServiceProxy('/gazebo/reset_simulation', Empty)
         self._reset_world_proxy = rospy.ServiceProxy('/gazebo/reset_world', Empty)
+
+        self._get_model_state = rospy.ServiceProxy(
+            "/gazebo/get_model_state", GetModelState)
 
         # We always pause the simulation, important for legged robots learning
         self.pauseSim()
@@ -91,4 +94,11 @@ class GazeboConnection():
                                          self._physics_properties.ode_config)
         except rospy.ServiceException:
             rospy.logerr("/change_gravity_zero service call failed")
+
+    def get_model_state(self, args):
+        rospy.wait_for_service('/gazebo/get_model_state')
+        try:
+            return self._get_model_state(*args)
+        except rospy.ServiceException as e:
+            rospy.logerr("/gazebo/get_model_state service call failed")
             

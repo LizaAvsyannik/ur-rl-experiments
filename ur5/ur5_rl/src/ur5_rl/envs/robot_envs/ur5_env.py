@@ -135,7 +135,7 @@ class UR5Env(RobotGazeboEnv):
     def _get_obs(self):
         raise NotImplementedError()
 
-    def _is_done(self, observations):
+    def _is_done(self):
         """Checks if episode done based on observations given.
         """
         raise NotImplementedError()
