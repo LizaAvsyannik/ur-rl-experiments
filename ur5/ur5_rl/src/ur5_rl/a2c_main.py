@@ -22,7 +22,7 @@ def read_params():
     config['learning_rate'] = rospy.get_param("/learning_rate")
     config['ckpt_freq'] = rospy.get_param("/ckpt_freq")
     config['device'] = 'cuda' if torch.cuda.is_available() else 'cpu'
-    config['ckpt_file'] = rospy.get_param('/model_ckpt_file', '')
+    config['ckpt_file'] = rospy.get_param('ckpt_file', '')
 
     controllers_list = rospy.get_param("/controllers_list")
     joint_names = rospy.get_param("/joint_names")
@@ -105,13 +105,15 @@ def main():
 
     start_ep = 0
     model = A2CModel(env.state_dim(), env.action_dim()).to(wandb.config.device)
+    optimizer = optim.Adam(model.parameters(), lr=wandb.config.learning_rate)
     if wandb.config.ckpt_file:
+        rospy.loginfo(f'Loading model from {wandb.config.ckpt_file}')
         saved_state = torch.load(wandb.config.ckpt_file)
         start_ep = saved_state['episode']
         model.load_state_dict(saved_state['model_state'])
+        optimizer.load_state_dict(saved_state['optimizer_state'])
 
     policy = A2CPolicy(model, wandb.config.device)
-    optimizer = optim.Adam(model.parameters(), lr=wandb.config.learning_rate)
     a2c = A2C(policy, optimizer, action_norm_coef=3e-2, entropy_coef=1e-2)
     postprocessor = MergeTimeBatch(wandb.config.device)
 
@@ -138,8 +140,10 @@ def main():
                                             type='model')
             torch.save({'episode': ep,
                         'url': wandb_run.url,
-                        'model_state': model.state_dict()}, f'/home/ros/catkin_ws/{wandb_run.path}-{ep}.pth')
-            model_artifact.add_file(f'{ep}.pth')
+                        'model_state': model.state_dict(),
+                        'optimizer_state': optimizer.state_dict()},
+                        f'/home/ros/catkin_ws/{wandb_run.path}-{ep}.pth')
+            model_artifact.add_file(f'/home/ros/catkin_ws/{wandb_run.path}-{ep}.pth')
             wandb.log_artifact(model_artifact)
 
     wandb_run.finish()

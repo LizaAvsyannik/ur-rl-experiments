@@ -4,7 +4,7 @@
 
 <!-- <include file="$(find ur5_gazebo)/launch/ur5_cubes.launch" /> -->
     <rosparam command="load" file="$(find ur5_rl)/config/reach_goal_params.yaml" />
-
+    <param name="ckpt_file" value="$(arg model_ckpt_file)"/>
     <node pkg="ur5_rl" name="ur5_gym" type="a2c_main.py" output="screen" />
 
 </launch>
