@@ -1,6 +1,6 @@
 # Joint state controller (publish joint states)
 joint_state_controller:
-  publish_rate: 125
+  publish_rate: 120
   type: joint_state_controller/JointStateController
   joints:
     - shoulder_pan_joint

@@ -13,12 +13,12 @@
   <!-- Load controllers -->
   <node name="robot_controllers" pkg="controller_manager" type="spawner"
         output="$(arg DEBUG)"
-        args="joint_state_controller joint_group_position_controller gripper_controller"/>
+        args="joint_group_velocity_controller gripper_controller joint_state_controller"/>
 
   <!-- TF -->
   <node pkg="robot_state_publisher" type="robot_state_publisher"
         name="robot_state_publisher">
-    <param name="publish_frequency"  type="double" value="50" />
+    <param name="publish_frequency"  type="double" value="120" />
   </node>
 
 </launch>

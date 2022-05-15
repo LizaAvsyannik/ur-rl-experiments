@@ -4,8 +4,8 @@ from std_msgs.msg import Float64MultiArray
 
 class Pub(object):
     def __init__(self, topic_name, cntrl_conn):
-         self.topic_name = topic_name # /<cntrl_name>/command
-         self.cntrl_conn = cntrl_conn
+        self.topic_name = topic_name # /<cntrl_name>/command
+        self.cntrl_conn = cntrl_conn
 
     def check_publishers_connection(self):
         """
@@ -39,10 +39,10 @@ class JointGroupPublisher(Pub):
         Checks that all the publishers are working
         :return:
         """
-        rate = rospy.Rate(120)  # 1hz
+        rate = rospy.Rate(120)
         while (self._pub.get_num_connections() == 0):
             rospy.logdebug(
-                "No subscribers to joint_group_position_controller yet so we wait and try again")
+                "No subscribers to joint_group_velocity_controller yet so we wait and try again")
             try:
                 self.cntrl_conn.start_controllers(
                     controllers_on=self.topic_name[1:-8])
@@ -57,11 +57,9 @@ class JointGroupPublisher(Pub):
     def move_joints(self, joints_array):
         pose = Float64MultiArray()
 
-        rate = rospy.Rate(120)
         while self._pub.get_num_connections() < 1:
             rospy.logdebug("Waiting for connection")
         pose.data = list(joints_array)
-        rate.sleep()
 
         self._pub.publish(pose)
         rospy.logdebug('Moved joints')

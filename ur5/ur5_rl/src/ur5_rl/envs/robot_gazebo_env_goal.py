@@ -3,21 +3,15 @@ import gym
 from gym.utils import seeding
 from .gazebo_connection import GazeboConnection
 from .controllers_connection import ControllersConnection
-#https://bitbucket.org/theconstructcore/theconstruct_msgs/src/master/msg/RLExperimentInfo.msg
-from theconstruct_msgs.msg import RLExperimentInfo
 
 class RobotGazeboEnv(gym.GoalEnv):
 
     def __init__(self, controllers_list):
-        # To reset Simulations
-        rospy.logdebug("Entered Gazebo Env")
+        self.controllers_list = controllers_list
         self.gazebo = GazeboConnection()
         self.controllers_object = ControllersConnection(controllers_list=controllers_list)
         self.seed()
-
-        # Set up ROS related variables
         self.episode_num = 0
-        self.reward_pub = rospy.Publisher('/openai/reward', RLExperimentInfo, queue_size=1)
 
     # Env methods
     def seed(self, seed=None):
@@ -32,30 +26,23 @@ class RobotGazeboEnv(gym.GoalEnv):
         :param action:
         :return: obs, reward, done, info
         """
-
-        """
-        Here we should convert the action num to movement action, execute the action in the
-        simulation and get the observations result of performing that action.
-        """
         rospy.logdebug("Entered step")
         rospy.logdebug("Unpause sim")
         self.gazebo.unpauseSim()
         rospy.logdebug("Set action")
         rospy.logdebug(f"Action: {action}")
-        self._set_action(action)
+        self._set_action(action.squeeze())
         rospy.logdebug("Is done")
         done = self._is_done()
         rospy.logdebug("Get Obs")
         obs = self._get_obs()
-        info = {}
-        reward, done = self._compute_reward(action, done)
-        self._publish_reward_topic(reward, self.episode_num)
-
+        reward, done, info = self._compute_reward(obs, done)
+        self._reset_env_state()
         return obs, reward, done, info
 
     def reset(self):
         rospy.logdebug("Reseting RobotGazeboEnvironment")
-        rospy.logdebug("Entered reset")
+        self._reset_env_state()
         self._reset_sim()
         self._update_episode()
         obs = self._get_obs()
@@ -78,21 +65,12 @@ class RobotGazeboEnv(gym.GoalEnv):
         """
         self.episode_num += 1
 
-    def _publish_reward_topic(self, reward, episode_number=1):
-        """
-        This function publishes the given reward in the reward topic for
-        easy access from ROS infrastructure.
-        :param reward:
-        :param episode_number:
-        :return:
-        """
-        reward_msg = RLExperimentInfo()
-        reward_msg.episode_number = episode_number
-        reward_msg.episode_reward = reward
-        self.reward_pub.publish(reward_msg)
-
     # Extension methods
     # ----------------------------
+    def _reset_env_state(self):
+        """Resets accumulated environment state
+        """
+        raise NotImplementedError()
 
     def _reset_sim(self):
         """Resets a simulation

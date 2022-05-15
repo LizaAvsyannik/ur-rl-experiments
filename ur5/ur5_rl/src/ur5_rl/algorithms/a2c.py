@@ -11,15 +11,25 @@ class A2CModel(nn.Module):
         super().__init__()
         self.state_dim = state_dim
         self.n_actions = n_actions
-        self.__backbone = nn.Sequential(nn.Linear(self.state_dim, 32),
+        self.__backbone = nn.Sequential(nn.Linear(self.state_dim, 64),
                                         nn.ReLU(),
-                                        nn.Linear(32, 128),
+                                        nn.Linear(64, 128),
                                         nn.ReLU(),
                                         nn.Linear(128, 256),
+                                        nn.ReLU(),
+                                        nn.Linear(256, 1024),
                                         nn.ReLU())
-        self.__muhead = nn.Linear(256, n_actions)
-        self.__varhead = nn.Linear(256, n_actions)
-        self.__vhead = nn.Linear(256, 1)
+        self.__muhead = nn.Sequential(nn.Linear(1024, 256),
+                                      nn.ReLU(),
+                                      nn.Linear(256, n_actions))
+        self.__varhead = nn.Sequential(nn.Linear(1024, 256),
+                                       nn.ReLU(),
+                                       nn.Linear(256, n_actions))
+        self.__vhead = nn.Sequential(nn.Linear(1024, 256),
+                                     nn.ReLU(),
+                                     nn.Linear(256, 32),
+                                     nn.ReLU(),
+                                     nn.Linear(32, 1))
         self.__initialize_weights()
 
     def __initialize_weights(self):
@@ -29,12 +39,12 @@ class A2CModel(nn.Module):
             else:
                 nn.init.zeros_(p)
 
-    def forward(self, inputs: torch.Tensor) -> tp.Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, inputs):
         internal = self.__backbone(inputs)
         mus = self.__muhead(internal)
         vars = self.__varhead(internal)
         v = self.__vhead(internal)
-        return (mus, vars, v.ravel())
+        return mus, vars, v
 
 
 class A2CPolicy:
@@ -51,15 +61,11 @@ class A2CPolicy:
         # Implement policy by calling model, sampling actions and computing their log probs
         # Should return a dict containing keys ['actions', 'logits', 'log_probs', 'values'].
         mus, vars, values = self.__model(inputs.to(self.device))
-        vars = torch.square(vars)
-        vars =  torch.where(vars > 0, vars, vars + self.eps)
-        cov = torch.empty(inputs.shape[0], self.__model.n_actions, self.__model.n_actions).to(self.device)
-        for i in range(inputs.shape[0]):
-            cov[i] = torch.diag(vars[i])
+        cov = torch.diag_embed(vars ** 2 + self.eps)
         dist = MultivariateNormal(mus, cov)
-        print(dist)
-        actions = dist.sample()
+        actions = dist.rsample()
         return {'actions': actions.detach().cpu().numpy(),
+                'actions_raw': actions,
                 'log_probs': dist.log_prob(actions),
                 'entropy': dist.entropy(),
                 'values': values}
@@ -72,14 +78,11 @@ class MergeTimeBatch:
     """ Merges first two axes typically representing time and env batch. """
     def __call__(self, trajectory):
         # Modify trajectory inplace.
-        trajectory['actions'] = torch.LongTensor(np.vstack(trajectory['actions']).reshape(-1, trajectory['actions'][0].shape[0])).to(self.device)
-        trajectory['log_probs'] = torch.vstack(trajectory['log_probs']).ravel()
-        trajectory['entropy'] = torch.vstack(trajectory['entropy']).ravel()
-        trajectory['values'] = torch.vstack(trajectory['values']).ravel().to(self.device)
-        trajectory['rewards'] = torch.Tensor(torch.vstack(trajectory['rewards']).ravel()).to(self.device)
-        trajectory['done'] = torch.ByteTensor(torch.vstack(trajectory['done']).ravel()).to(self.device)
+        trajectory['actions_raw'] = torch.vstack(trajectory['actions_raw'])
         trajectory['value_targets'] = trajectory['value_targets'].ravel()
-
+        for k, v in trajectory.items():
+            if k not in ['actions', 'actions_raw', 'value_targets']:
+                trajectory[k] = torch.vstack(v).ravel()
         return trajectory
 
 
@@ -88,11 +91,13 @@ class A2C:
                  policy,
                  optimizer,
                  value_loss_coef=0.25,
+                 action_norm_coef=0.01,
                  entropy_coef=0.01,
                  max_grad_norm=0.5):
         self.policy = policy
         self.optimizer = optimizer
         self.value_loss_coef = value_loss_coef
+        self.action_norm_coef = action_norm_coef
         self.entropy_coef = entropy_coef
         self.max_grad_norm = max_grad_norm
 
@@ -102,7 +107,7 @@ class A2C:
     def policy_loss(self, trajectory):
         advantage = self.__advantage(trajectory['values'].detach(),
                                      trajectory['value_targets'].detach())
-        return torch.dot(trajectory['log_probs'], advantage) /  advantage.shape[0]
+        return torch.dot(trajectory['log_probs'], advantage) / advantage.shape[0]
 
     def value_loss(self, trajectory):
         advantage = self.__advantage(trajectory['values'],
@@ -110,12 +115,13 @@ class A2C:
         return torch.dot(advantage, advantage) / advantage.shape[0]
 
     def loss(self, trajectory):
-        rospy.logdebug("Calculating episodes's loss")
+        rospy.logdebug("Calculating episodes loss")
         policy_loss = self.policy_loss(trajectory)
         value_loss = self.value_loss(trajectory)
+        action_norm = torch.mean(torch.norm(trajectory['actions_raw'], dim=-1))
         entropy = trajectory['entropy'].mean()
-        a2c_loss = policy_loss + self.value_loss_coef * value_loss - self.entropy_coef * entropy
-        return {'a2c': a2c_loss, 'policy_loss': policy_loss, 'value_loss': value_loss, 'entropy': entropy}
+        a2c_loss = policy_loss + self.value_loss_coef * value_loss + self.action_norm_coef * action_norm - self.entropy_coef * entropy
+        return {'a2c': a2c_loss, 'policy_loss': policy_loss, 'value_loss': value_loss, 'action_norm': action_norm, 'entropy': entropy}
 
     def step(self, trajectory):
         self.optimizer.zero_grad()

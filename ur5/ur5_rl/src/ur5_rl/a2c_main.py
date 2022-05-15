@@ -1,4 +1,4 @@
- #!/usr/bin/env python3
+#!/usr/bin/env python3
 
 import wandb
 
@@ -11,13 +11,9 @@ from ur5_rl.envs.task_envs import UR5EnvGoal
 
 from ur5_rl.algorithms.a2c import A2C, A2CModel, A2CPolicy, MergeTimeBatch
 
-DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
-#DEVICE = 'cpu'
-obs_dim = 15
-n_act = 6
-
 WANDB_RUN_NAME = 'my-lapka-first-steps'
 WANDB_MODEL_CHECKPOINT_NAME = 'my-lapka-first-checkpoint'
+
 
 def read_params():
     config = {}
@@ -25,41 +21,50 @@ def read_params():
     config['n_steps_per_episode'] = rospy.get_param("/n_steps_per_episode")
     config['learning_rate'] = rospy.get_param("/learning_rate")
     config['ckpt_freq'] = rospy.get_param("/ckpt_freq")
+    config['device'] = 'cuda' if torch.cuda.is_available() else 'cpu'
+    config['ckpt_file'] = rospy.get_param('/model_ckpt_file', '')
 
     controllers_list = rospy.get_param("/controllers_list")
     joint_names = rospy.get_param("/joint_names")
     link_names = rospy.get_param("/link_names")
 
     joint_limits = {}
-    joint_limits['lower'] =  list(map(lambda x: x * np.pi , rospy.get_param("/joint_limits/lower")))
-    joint_limits['upper'] =  list(map(lambda x: x * np.pi , rospy.get_param("/joint_limits/upper")))
+    joint_limits['lower'] = list(
+        map(lambda x: x * np.pi, rospy.get_param("/joint_limits/lower")))
+    joint_limits['upper'] = list(
+        map(lambda x: x * np.pi, rospy.get_param("/joint_limits/upper")))
 
-    target_limits  = {}
+    target_limits = {}
     target_limits['radius'] = rospy.get_param("/target_limits/radius")
-    target_limits['target_size'] = rospy.get_param("/target_limits/target_size")
+    target_limits['target_size'] = rospy.get_param(
+        "/target_limits/target_size")
 
     return config, controllers_list, \
-           joint_names, link_names, joint_limits, target_limits 
+        joint_names, link_names, joint_limits, target_limits
 
 
-def run_episode(env, policy, n_steps=2):
+def run_episode(env, policy, n_steps):
     obs = env.reset()
-    trajectory = {'observations': [], 'actions': [], 'log_probs': [], 'entropy': [],  'values': [],
-                  'rewards': [], 'done': []}
-    
+    trajectory = {}
+
     for _ in range(n_steps):
-        obs = torch.FloatTensor(obs).unsqueeze(0)  # (1, obs_dim))
+        obs = obs.unsqueeze(0).to(policy.device)
         step_results = {'observations': obs}
 
         policy_result = policy.act(obs)
         step_results.update(policy_result)
-        
-        obs, reward, done, _ = env.step(policy_result['actions'][0])
-        step_results['rewards'] = torch.Tensor([reward])
-        step_results['done'] = torch.ByteTensor([done])
-        
+
+        obs, reward, done, info = env.step(policy_result['actions'])
+        step_results['rewards'] = torch.Tensor([reward]).to(policy.device)
+        step_results['done'] = torch.ByteTensor([done]).to(policy.device)
+        step_results['distances'] = torch.Tensor(
+            [info['distance']]).to(policy.device)
+
         for k, v in step_results.items():
-            trajectory[k].append(v)
+            if k not in trajectory:
+                trajectory[k] = [v]
+            else:
+                trajectory[k].append(v)
 
         if done:
             break
@@ -67,65 +72,77 @@ def run_episode(env, policy, n_steps=2):
     return trajectory
 
 
-def add_value_targets(trajectory, gamma=0.99): # compute the returns
+def add_value_targets(trajectory, gamma=0.99):  # compute the returns
     rewards = trajectory['rewards']
     targets = torch.zeros_like(torch.vstack(rewards))
     ret = 0
     for t in reversed(range(len(rewards))):
         ret = rewards[t] + gamma * ret
         targets[t] = ret
-    trajectory['value_targets'] = targets.to(DEVICE)
+    trajectory['value_targets'] = targets
 
 
-def run_policy(env, policy, postprocessor, n_steps=2):
-    total_steps = 0
+def run_policy(env, policy, postprocessor, n_steps=100):
     trajectory = run_episode(env, policy, n_steps=n_steps)
-    total_steps += len(trajectory['observations'])
     add_value_targets(trajectory)
     postprocessor(trajectory)
     return trajectory
 
 
 def main():
-    rospy.init_node('ur_gym', anonymous=False, log_level=rospy.DEBUG)
+    rospy.init_node('ur_gym', anonymous=False, log_level=rospy.INFO)
 
-    rospy.logdebug('Reading parameters...')
+    rospy.loginfo('Reading parameters...')
     config, controllers_list, joint_names, link_names, joint_limits, target_limits = read_params()
-    rospy.logdebug('Finished reading parameters')
+    rospy.loginfo('Finished reading parameters')
 
-    wandb.init(project="my-rl-lapka", entity="liza-avsyannik", name=WANDB_RUN_NAME, config=config)
+    wandb_run = wandb.init(project="my-rl-lapka", entity="liza-avsyannik",
+                           name=WANDB_RUN_NAME, config=config)
 
-    kwargs = {'controllers_list': controllers_list, 'joint_limits': joint_limits, 'link_names': link_names, 
-              'target_limits': target_limits, 'pub_topic_name': f'{controllers_list[0]}/command'}
+    kwargs = {'controllers_list': controllers_list, 'joint_limits': joint_limits, 'link_names': link_names,
+              'target_limits': target_limits, 'pub_topic_name': f'/{controllers_list[0]}/command'}
     env = gym.make('UR5EnvGoal-v0', **kwargs)
-    
-    model = A2CModel(obs_dim, n_act).to(DEVICE)
-    policy = A2CPolicy(model, DEVICE)
+
+    start_ep = 0
+    model = A2CModel(env.state_dim(), env.action_dim()).to(wandb.config.device)
+    if wandb.config.ckpt_file:
+        saved_state = torch.load(wandb.config.ckpt_file)
+        start_ep = saved_state['episode']
+        model.load_state_dict(saved_state['model_state'])
+
+    policy = A2CPolicy(model, wandb.config.device)
     optimizer = optim.Adam(model.parameters(), lr=wandb.config.learning_rate)
-    a2c = A2C(policy, optimizer)
-    postprocessor = MergeTimeBatch(DEVICE)
+    a2c = A2C(policy, optimizer, action_norm_coef=3e-2, entropy_coef=1e-2)
+    postprocessor = MergeTimeBatch(wandb.config.device)
 
     rospy.loginfo('Starting training loop')
-    for ep in range(wandb.config.n_episodes):
+    for ep in range(start_ep, wandb.config.n_episodes):
         env.reset()
-        trajectory = run_policy(env, policy, postprocessor, wandb.config.n_steps_per_episode)
+        trajectory = run_policy(
+            env, policy, postprocessor, wandb.config.n_steps_per_episode)
         step_results = a2c.step(trajectory)
         wandb.log({'Number of steps': trajectory['rewards'].shape[0],
                    'Mean reward': torch.mean(trajectory['rewards']),
+                   'Last step reward': trajectory['rewards'][-1],
+                   'Mean distance': torch.mean(trajectory['distances']),
+                   'Last step distance': trajectory['distances'][-1],
                    'Value loss': step_results['value_loss'],
                    'Policy loss': step_results['policy_loss'],
+                   'Action norm': step_results['action_norm'],
                    'Policy entropy': step_results['entropy']},
-                   step=ep)
+                  step=ep)
 
         if (ep + 1) % wandb.config.ckpt_freq == 0:
+            rospy.loginfo('Saving model checkpoint')
             model_artifact = wandb.Artifact(name=WANDB_MODEL_CHECKPOINT_NAME,
                                             type='model')
-            torch.save(model, f'{ep}.pth')
+            torch.save({'episode': ep,
+                        'url': wandb_run.url,
+                        'model_state': model.state_dict()}, f'/home/ros/catkin_ws/{wandb_run.path}-{ep}.pth')
             model_artifact.add_file(f'{ep}.pth')
             wandb.log_artifact(model_artifact)
 
-
-    wandb.finish()
+    wandb_run.finish()
     env.close()
 
 

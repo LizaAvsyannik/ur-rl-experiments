@@ -31,6 +31,11 @@
               -J elbow_joint 1.0"
         output="screen" />
 
+  <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher">
+    <param name="/use_gui" value="false"/>
+    <param name="/rate" value="120"/>
+  </node>
+
   <include file="$(find ur5_gazebo)/launch/ur5_controllers.launch" />
 
 </launch>

@@ -1,5 +1,6 @@
 <?xml version="1.0"?>
 <launch>
+    <arg name="model_ckpt_file" default=""/>
 
 <!-- <include file="$(find ur5_gazebo)/launch/ur5_cubes.launch" /> -->
     <rosparam command="load" file="$(find ur5_rl)/config/reach_goal_params.yaml" />
