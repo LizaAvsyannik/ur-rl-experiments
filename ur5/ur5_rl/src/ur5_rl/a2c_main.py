@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import os
+from pathlib import Path
 import wandb
 
 import gym
@@ -11,8 +13,8 @@ from ur5_rl.envs.task_envs import UR5EnvGoal
 
 from ur5_rl.algorithms.a2c import A2C, A2CModel, A2CPolicy, MergeTimeBatch
 
-WANDB_RUN_NAME = 'my-lapka-first-steps'
-WANDB_MODEL_CHECKPOINT_NAME = 'my-lapka-first-checkpoint'
+WANDB_RUN_NAME = 'lapka-no-positive-reward-no-collisions'
+WANDB_MODEL_CHECKPOINT_NAME = 'lapka-a2c-no-positive-reward-no-collisions'
 
 
 def read_params():
@@ -114,7 +116,7 @@ def main():
         optimizer.load_state_dict(saved_state['optimizer_state'])
 
     policy = A2CPolicy(model, wandb.config.device)
-    a2c = A2C(policy, optimizer, action_norm_coef=3e-2, entropy_coef=1e-2)
+    a2c = A2C(policy, optimizer, action_norm_coef=0, entropy_coef=1e-2)
     postprocessor = MergeTimeBatch(wandb.config.device)
 
     rospy.loginfo('Starting training loop')
@@ -142,8 +144,8 @@ def main():
                         'url': wandb_run.url,
                         'model_state': model.state_dict(),
                         'optimizer_state': optimizer.state_dict()},
-                        f'/home/ros/catkin_ws/{wandb_run.path}-{ep}.pth')
-            model_artifact.add_file(f'/home/ros/catkin_ws/{wandb_run.path}-{ep}.pth')
+                        f'/home/ros/catkin_ws/{wandb_run.id}-{ep + 1}.pth')
+            model_artifact.add_file(f'/home/ros/catkin_ws/{wandb_run.id}-{ep + 1}.pth')
             wandb.log_artifact(model_artifact)
 
     wandb_run.finish()

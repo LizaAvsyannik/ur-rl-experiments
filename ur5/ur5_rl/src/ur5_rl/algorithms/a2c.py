@@ -115,7 +115,7 @@ class A2C:
         return torch.dot(advantage, advantage) / advantage.shape[0]
 
     def loss(self, trajectory):
-        rospy.logdebug("Calculating episodes loss")
+        rospy.logdebug("Calculating episode loss")
         policy_loss = self.policy_loss(trajectory)
         value_loss = self.value_loss(trajectory)
         action_norm = torch.mean(torch.norm(trajectory['actions_raw'], dim=-1))

@@ -93,18 +93,21 @@ class UR5EnvGoal(UR5Env):
     def _compute_reward(self, obs, done):
         """Calculates the reward to give based on the observations given.
         """
-        collision_penalty = -100
+        # collision_penalty = -100
         success_reward = 100
 
         distance = np.linalg.norm(np.array(self._ur5_state.end_effector_position) - self.__target_position)
         if distance <= 0.05:
             rospy.logdebug('Reached goal! HOORAY!')
             return success_reward, True, {'distance': 0.0}
-        elif done:  # collision happened
-            rospy.logwarn('Collision happened, moving on to next episode')
-            return collision_penalty, done, {'distance': 0.0}
+        # elif done:  # collision happened
+        #     rospy.logwarn('Collision happened, moving on to next episode')
+        #     return collision_penalty, done, {'distance': 0.0}
         else:
-            distance_reward = 100 * (self.__prev_distance - distance)
+            if distance <= self.__prev_distance:
+                distance_reward = 0
+            else:
+                distance_reward = 100 * (self.__prev_distance - distance)
             self.__prev_distance = distance
             return distance_reward, done, {'distance': distance}
 
