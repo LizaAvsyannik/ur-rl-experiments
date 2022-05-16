@@ -142,8 +142,8 @@ def main():
                         'url': wandb_run.url,
                         'model_state': model.state_dict(),
                         'optimizer_state': optimizer.state_dict()},
-                        f'/home/ros/catkin_ws/{wandb_run.path}-{ep}.pth')
-            model_artifact.add_file(f'/home/ros/catkin_ws/{wandb_run.path}-{ep}.pth')
+                        f'/home/ros/catkin_ws/{wandb_run.id}-{ep}.pth')
+            model_artifact.add_file(f'/home/ros/catkin_ws/{wandb_run.id}-{ep}.pth')
             wandb.log_artifact(model_artifact)
 
     wandb_run.finish()

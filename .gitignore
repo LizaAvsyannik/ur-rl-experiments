@@ -2,6 +2,8 @@
 # Created by https://www.toptal.com/developers/gitignore/api/python,c++,cmake,ros
 # Edit at https://www.toptal.com/developers/gitignore?templates=python,c++,cmake,ros
 
+.vscode/
+
 ### C++ ###
 # Prerequisites
 *.d
