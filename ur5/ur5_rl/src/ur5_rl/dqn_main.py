@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from typing import AsyncGenerator
 import wandb
 
 import gym
@@ -11,8 +12,8 @@ from torch import nn
 from torch import optim
 from ur5_rl.envs.task_envs import UR5EnvGoal
 
-from ur5_rl.algorithms.dqn import DQNAgent
-from ur5_rl.algorithms.replay_buffer import ReplayBuffer, compute_td_loss
+from ur5_rl.algorithms.dqn import DQNAgent, compute_td_loss
+from ur5_rl.algorithms.replay_buffer import ReplayBuffer
 from ur5_rl.dqn_utils import is_enough_ram, wait_for_keyboard_interrupt, linear_decay
 
 WANDB_RUN_NAME = 'dqn'
@@ -74,7 +75,7 @@ def play_and_record(initial_state, agent, env, exp_replay, n_steps=1):
     return sum_rewards, s
 
 
-def create_replay_buffer(state, agent, env, exp_replay, n_steps=1, replay_buffer_size=1e4):
+def create_replay_buffer(state, agent, env, n_steps=1, replay_buffer_size=10 ** 4):
     exp_replay = ReplayBuffer(replay_buffer_size)
     env.reset()
     for i in range(replay_buffer_size // n_steps):
@@ -126,7 +127,7 @@ def main():
 
     start_ep = 0
 
-    agent = DQNAgent(env.state_dim(), len(env.actions) ** env.action_dim(), eplison=1).to(wandb.config.device)
+    agent = DQNAgent(env.state_dim(), len(env.actions) ** env.action_dim(), epsilon=1).to(wandb.config.device)
     optimizer = optim.Adam(agent.parameters(), lr=wandb.config.learning_rate)
 
     if wandb.config.ckpt_file:
@@ -149,7 +150,6 @@ def main():
     init_epsilon = 1
     final_epsilon = 0.1
 
-    loss_freq = 50
     refresh_target_network_freq = 5000
     eval_freq = 5000
 
@@ -157,12 +157,9 @@ def main():
 
     n_lives = 5
 
-    mean_rw_history = []
-    td_loss_history = []
-    grad_norm_history = []
-    initial_state_v_history = []
-
-    for ep in range(start_ep, total_steps):
+    state = env.reset()
+    for ep in range(start_ep, 2):
+        print('start_ep')
         if not is_enough_ram():
             print('less that 100 Mb RAM available, freezing')
             print('make sure everything is ok and use KeyboardInterrupt to continue')
@@ -177,26 +174,35 @@ def main():
         s, a, rw, ns, done = exp_replay.sample(batch_size)
 
         loss = compute_td_loss(s, a, rw, ns, done, agent, target_network)
-
+        print('computed_los')
         loss.backward()
         grad_norm = nn.utils.clip_grad_norm_(agent.parameters(), max_grad_norm)
         optimizer.step()
         optimizer.zero_grad()
-
+        print('end of step')
         if ep % refresh_target_network_freq == 0:
             # Load agent weights into target_network
             target_network.load_state_dict(agent.state_dict())
         
-        td_loss_history.append(loss.data.cpu().item())
-        grad_norm_history.append(grad_norm)
-
         wandb.log({'Loss': loss.data.cpu().item(),
                    'Gradient norm': grad_norm},
                   step=ep)
 
         if ep % eval_freq == 0:
-            wandb.log({'Mean evaluation reward': evaluate(env, agent, n_games=3 * n_lives, greedy=True)},
+            wandb.log({'Mean evaluation reward': evaluate(env, agent, n_games=3 * n_lives, greedy=True, t_max=100)},
                         step=ep)
+
+        if (ep + 1) % wandb.config.ckpt_freq == 0:
+            rospy.loginfo('Saving model checkpoint')
+            model_artifact = wandb.Artifact(name=WANDB_MODEL_CHECKPOINT_NAME,
+                                            type='model')
+            torch.save({'episode': ep,
+                        'url': wandb_run.url,
+                        'model_state': agent.state_dict(),
+                        'optimizer_state': optimizer.state_dict()},
+                        f'/home/ros/catkin_ws/{wandb_run.id}-{ep}.pth')
+            model_artifact.add_file(f'/home/ros/catkin_ws/{wandb_run.id}-{ep}.pth')
+            wandb.log_artifact(model_artifact)
         
     env.close()
 

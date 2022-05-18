@@ -36,7 +36,7 @@ class DQNAgent(nn.Module):
         like forward, but works on numpy arrays, not tensors
         """
         model_device = next(self.parameters()).device
-        states = torch.tensor(states, device=model_device, dtype=torch.float32)
+        states = torch.vstack(states).to(device=model_device)
         qvalues = self.forward(states)
         return qvalues.data.cpu().numpy()
 
