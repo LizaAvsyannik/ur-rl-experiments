@@ -7,13 +7,14 @@ import gym
 import rospy
 import numpy as np
 import torch
+import torch.nn.functional as F
 from torch import optim
 from ur5_rl.envs.task_envs import UR5EnvGoal
 
 from ur5_rl.algorithms.a2c import A2C, A2CModel, A2CPolicy, MergeTimeBatch
 
-WANDB_RUN_NAME = 'changed_policy_loss'
-WANDB_MODEL_CHECKPOINT_NAME = 'changed_policy_loss-checkpoint'
+WANDB_RUN_NAME = 'heuristics'
+WANDB_MODEL_CHECKPOINT_NAME = 'heuristics-checkpoint'
 
 
 def read_params():
@@ -70,12 +71,14 @@ def run_episode(env, policy, n_steps):
         if done:
             break
 
+    trajectory['rewards'] = F.normalize(torch.vstack(trajectory['rewards']))
+
     return trajectory
 
 
 def add_value_targets(trajectory, gamma=0.99):  # compute the returns
     rewards = trajectory['rewards']
-    targets = torch.zeros_like(torch.vstack(rewards))
+    targets = torch.zeros_like(rewards)
     ret = 0
     for t in reversed(range(len(rewards))):
         ret = rewards[t] + gamma * ret

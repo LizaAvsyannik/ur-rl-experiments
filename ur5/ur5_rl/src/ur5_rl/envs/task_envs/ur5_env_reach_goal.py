@@ -106,7 +106,7 @@ class UR5EnvGoal(UR5Env):
         else:
             distance_reward = 5 * (self.__prev_distance - distance)
             self.__prev_distance = distance
-            return distance_reward, done, {'distance': distance}
+            return distance_reward + np.exp(-distance), done, {'distance': distance}
 
     def _set_action(self, action):
         """Applies the given action to the simulation.

@@ -6,35 +6,45 @@ import typing as tp
 import rospy
 
 
+class LinearBlock(nn.Module):
+    def __init__(self, n_in, n_out, act_fn=nn.ReLU, n_layers=4, n_inner=-1):
+        super().__init__()
+        self.n_in = n_in
+        self.n_out = n_out
+        self.act_fn = act_fn
+        if n_inner == -1:
+            n_inner = n_out
+        self.block = nn.Sequential(nn.Linear(n_in, n_inner),
+                                   act_fn(),
+                                   *[nn.Sequential(nn.Linear(n_inner, n_inner),
+                                                   act_fn())
+                                     for _ in range(max(0, n_layers - 2))],
+                                   nn.Linear(n_inner, n_out))
+
+    def forward(self, inputs):
+        return self.block(inputs)
+
+
 class A2CModel(nn.Module):
     def __init__(self, state_dim, n_actions, eps=1e-8):
         super().__init__()
         self.state_dim = state_dim
         self.n_actions = n_actions
         self.eps = eps
-        self.__munet = nn.Sequential(nn.Linear(self.state_dim, 64),
-                                     nn.ELU(),
-                                     nn.Linear(64, 256),
-                                     nn.ELU(),
-                                     nn.Linear(256, 64),
-                                     nn.ELU(),
-                                     nn.Linear(64, n_actions),
+        self.__backbone = nn.Sequential(LinearBlock(state_dim, 64),
+                                        nn.GELU(),
+                                        LinearBlock(64, 128),
+                                        nn.GELU())
+        self.__munet = nn.Sequential(LinearBlock(128, n_actions, n_layers=2),
                                      nn.Tanh())
-        self.__varnet = nn.Sequential(nn.Linear(self.state_dim, 64),
-                                      nn.ELU(),
-                                      nn.Linear(64, 256),
-                                      nn.ELU(),
-                                      nn.Linear(256, 64),
-                                      nn.ELU(),
-                                      nn.Linear(64, n_actions),
+        self.__varnet = nn.Sequential(LinearBlock(128, n_actions, n_layers=2),
                                       nn.Sigmoid())
-        self.__vnet = nn.Sequential(nn.Linear(self.state_dim, 64),
-                                    nn.ELU(),
-                                    nn.Linear(64, 256),
-                                    nn.ELU(),
-                                    nn.Linear(256, 64),
-                                    nn.ELU(),
+        self.__vnet = nn.Sequential(LinearBlock(state_dim, 64),
+                                    nn.ReLU(),
+                                    LinearBlock(64, 64),
+                                    nn.ReLU(),
                                     nn.Linear(64, 1))
+        self.__initialize_net_weights(self.__backbone, scale=2**0.5)
         self.__initialize_net_weights(self.__munet, scale=2**0.5)
         self.__initialize_net_weights(self.__varnet, scale=2**0.5)
         self.__initialize_net_weights(self.__vnet, scale=2**0.5)
@@ -47,8 +57,9 @@ class A2CModel(nn.Module):
                 nn.init.orthogonal_(p, scale)
 
     def forward(self, inputs):
-        mus = self.__munet(inputs)
-        vars = self.__varnet(inputs)
+        inner = self.__backbone(inputs)
+        mus = self.__munet(inner)
+        vars = self.__varnet(inner)
         v = self.__vnet(inputs)
         return mus, vars + self.eps, v
 
@@ -86,9 +97,10 @@ class MergeTimeBatch:
     def __call__(self, trajectory):
         # Modify trajectory inplace.
         trajectory['actions_raw'] = torch.vstack(trajectory['actions_raw'])
+        trajectory['rewards'] = trajectory['rewards'].ravel()
         trajectory['value_targets'] = trajectory['value_targets'].ravel()
         for k, v in trajectory.items():
-            if k not in ['actions', 'actions_raw', 'value_targets']:
+            if k not in ['actions', 'actions_raw', 'rewards', 'value_targets']:
                 trajectory[k] = torch.vstack(v).ravel()
         return trajectory
 
