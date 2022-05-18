@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<launch>
+    <arg name="model_ckpt_file" default=""/>
+
+<!-- <include file="$(find ur5_gazebo)/launch/ur5_cubes.launch" /> -->
+    <rosparam command="load" file="$(find ur5_rl)/config/reach_goal_params.yaml" />
+    <param name="ckpt_file" value="$(arg model_ckpt_file)"/>
+    <param name="num_runner_epochs" value="3"/>
+    <param name="num_runner_minibatches" value="16"/>
+    <node pkg="ur5_rl" name="ur5_gym" type="ppo_main.py" output="screen" />
+
+</launch>
