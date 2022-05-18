@@ -7,44 +7,50 @@ import rospy
 
 
 class A2CModel(nn.Module):
-    def __init__(self, state_dim, n_actions):
+    def __init__(self, state_dim, n_actions, eps=1e-8):
         super().__init__()
         self.state_dim = state_dim
         self.n_actions = n_actions
-        self.__backbone = nn.Sequential(nn.Linear(self.state_dim, 64),
-                                        nn.ReLU(),
-                                        nn.Linear(64, 128),
-                                        nn.ReLU(),
-                                        nn.Linear(128, 256),
-                                        nn.ReLU(),
-                                        nn.Linear(256, 1024),
-                                        nn.ReLU())
-        self.__muhead = nn.Sequential(nn.Linear(1024, 256),
-                                      nn.ReLU(),
-                                      nn.Linear(256, n_actions))
-        self.__varhead = nn.Sequential(nn.Linear(1024, 256),
-                                       nn.ReLU(),
-                                       nn.Linear(256, n_actions))
-        self.__vhead = nn.Sequential(nn.Linear(1024, 256),
-                                     nn.ReLU(),
-                                     nn.Linear(256, 32),
-                                     nn.ReLU(),
-                                     nn.Linear(32, 1))
-        self.__initialize_weights()
+        self.eps = eps
+        self.__munet = nn.Sequential(nn.Linear(self.state_dim, 64),
+                                     nn.ELU(),
+                                     nn.Linear(64, 256),
+                                     nn.ELU(),
+                                     nn.Linear(256, 64),
+                                     nn.ELU(),
+                                     nn.Linear(64, n_actions),
+                                     nn.Tanh())
+        self.__varnet = nn.Sequential(nn.Linear(self.state_dim, 64),
+                                      nn.ELU(),
+                                      nn.Linear(64, 256),
+                                      nn.ELU(),
+                                      nn.Linear(256, 64),
+                                      nn.ELU(),
+                                      nn.Linear(64, n_actions),
+                                      nn.Sigmoid())
+        self.__vnet = nn.Sequential(nn.Linear(self.state_dim, 64),
+                                    nn.ELU(),
+                                    nn.Linear(64, 256),
+                                    nn.ELU(),
+                                    nn.Linear(256, 64),
+                                    nn.ELU(),
+                                    nn.Linear(64, 1))
+        self.__initialize_net_weights(self.__munet, scale=2**0.5)
+        self.__initialize_net_weights(self.__varnet, scale=2**0.5)
+        self.__initialize_net_weights(self.__vnet, scale=2**0.5)
 
-    def __initialize_weights(self):
-        for p in self.parameters():
-            if p.ndim >= 2:
-                nn.init.orthogonal_(p, 2 ** 0.5)
-            else:
+    def __initialize_net_weights(self, net, scale):
+        for p in net.parameters():
+            if p.ndim < 2:
                 nn.init.zeros_(p)
+            else:
+                nn.init.orthogonal_(p, scale)
 
     def forward(self, inputs):
-        internal = self.__backbone(inputs)
-        mus = self.__muhead(internal)
-        vars = self.__varhead(internal)
-        v = self.__vhead(internal)
-        return mus, vars, v
+        mus = self.__munet(inputs)
+        vars = self.__varnet(inputs)
+        v = self.__vnet(inputs)
+        return mus, vars + self.eps, v
 
 
 class A2CPolicy:
@@ -61,7 +67,8 @@ class A2CPolicy:
         # Implement policy by calling model, sampling actions and computing their log probs
         # Should return a dict containing keys ['actions', 'logits', 'log_probs', 'values'].
         mus, vars, values = self.__model(inputs.to(self.device))
-        cov = torch.diag_embed(vars ** 2 + self.eps)
+        print(mus, vars)
+        cov = torch.diag_embed(3 * vars + self.eps)
         dist = MultivariateNormal(mus, cov)
         actions = dist.rsample()
         return {'actions': actions.detach().cpu().numpy(),
@@ -105,8 +112,8 @@ class A2C:
         return values - value_targets
         
     def policy_loss(self, trajectory):
-        advantage = self.__advantage(trajectory['values'].detach(),
-                                     trajectory['value_targets'].detach())
+        advantage = self.__advantage(trajectory['value_targets'].detach(),
+                                     trajectory['values'].detach())
         return torch.dot(trajectory['log_probs'], advantage) / advantage.shape[0]
 
     def value_loss(self, trajectory):
@@ -121,6 +128,7 @@ class A2C:
         action_norm = torch.mean(torch.norm(trajectory['actions_raw'], dim=-1))
         entropy = trajectory['entropy'].mean()
         a2c_loss = policy_loss + self.value_loss_coef * value_loss + self.action_norm_coef * action_norm - self.entropy_coef * entropy
+        # a2c_loss = value_loss + self.action_norm_coef * action_norm - self.entropy_coef * entropy
         return {'a2c': a2c_loss, 'policy_loss': policy_loss, 'value_loss': value_loss, 'action_norm': action_norm, 'entropy': entropy}
 
     def step(self, trajectory):

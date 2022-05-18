@@ -37,26 +37,26 @@ class UR5EnvGoal(UR5Env):
     def _reset_sim(self):
         """Resets a simulation
         """
-        has_collision = True
-        while has_collision:
-            self._reset_env_state()
-            rospy.logdebug("Pausing SIM...")
-            self.gazebo.pauseSim()
-            rospy.logdebug("Reset SIM...")
-            self.gazebo.resetWorld()
-            rospy.logdebug("Unpausing Sim...")
-            self.gazebo.unpauseSim()
-            rospy.logdebug("Reseting Controllers...")
-            self.controllers_object.reset_controllers(self.controllers_list)
-            rospy.logdebug("Checking Publishers Connections...")
-            self._publisher.check_publishers_connection()
-            rospy.logdebug("Checking All Systems...")
-            self._check_all_systems_ready()
-            rospy.logdebug("Checking Init Pose for Target...")
-            self._set_init_target_pose()
-            rospy.logdebug("Setting Init Pose for Arm...")
-            self._set_init_pose(self._joint_limits)
-            has_collision = self._has_collision()
+        # has_collision = True
+        # while has_collision:
+        self._reset_env_state()
+        rospy.logdebug("Pausing SIM...")
+        self.gazebo.pauseSim()
+        rospy.logdebug("Reset SIM...")
+        self.gazebo.resetWorld()
+        rospy.logdebug("Unpausing Sim...")
+        self.gazebo.unpauseSim()
+        rospy.logdebug("Reseting Controllers...")
+        self.controllers_object.reset_controllers(self.controllers_list)
+        rospy.logdebug("Checking Publishers Connections...")
+        self._publisher.check_publishers_connection()
+        rospy.logdebug("Checking All Systems...")
+        self._check_all_systems_ready()
+        rospy.logdebug("Checking Init Pose for Target...")
+        self._set_init_target_pose()
+            # rospy.logdebug("Setting Init Pose for Arm...")
+            # self._set_init_pose(self._joint_limits)
+            # has_collision = self._has_collision()
 
     def _set_init_pose(self, joint_limits):
         """Sets the Robot in its init pose
@@ -93,18 +93,18 @@ class UR5EnvGoal(UR5Env):
     def _compute_reward(self, obs, done):
         """Calculates the reward to give based on the observations given.
         """
-        collision_penalty = -100
-        success_reward = 100
+        collision_penalty = -5
+        success_reward = 5
 
         distance = np.linalg.norm(np.array(self._ur5_state.end_effector_position) - self.__target_position)
         if distance <= 0.05:
-            rospy.logdebug('Reached goal! HOORAY!')
-            return success_reward, True, {'distance': 0.0}
+            rospy.logdebug('Reached goal')
+            return success_reward, True, {'distance': distance}
         elif done:  # collision happened
             rospy.logwarn('Collision happened, moving on to next episode')
-            return collision_penalty, done, {'distance': 0.0}
+            return collision_penalty, done, {'distance': distance}
         else:
-            distance_reward = 100 * (self.__prev_distance - distance)
+            distance_reward = 5 * (self.__prev_distance - distance)
             self.__prev_distance = distance
             return distance_reward, done, {'distance': distance}
 
@@ -117,9 +117,6 @@ class UR5EnvGoal(UR5Env):
         """Checks if episode done based on observations given.
         """
         return self._has_collision()
-
-    def _update_robot_state(self, joint_states, eef_position):
-        self._ur5_state.update(joint_states, eef_position)
 
     def _get_obs(self):
         joint_states = self.get_current_joint_states()

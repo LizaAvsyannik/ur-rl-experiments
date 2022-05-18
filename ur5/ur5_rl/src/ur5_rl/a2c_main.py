@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import wandb
+import time
 
 import gym
 import rospy
@@ -11,8 +12,8 @@ from ur5_rl.envs.task_envs import UR5EnvGoal
 
 from ur5_rl.algorithms.a2c import A2C, A2CModel, A2CPolicy, MergeTimeBatch
 
-WANDB_RUN_NAME = 'my-lapka-first-steps'
-WANDB_MODEL_CHECKPOINT_NAME = 'my-lapka-first-checkpoint'
+WANDB_RUN_NAME = 'changed_policy_loss'
+WANDB_MODEL_CHECKPOINT_NAME = 'changed_policy_loss-checkpoint'
 
 
 def read_params():
@@ -123,6 +124,8 @@ def main():
         trajectory = run_policy(
             env, policy, postprocessor, wandb.config.n_steps_per_episode)
         step_results = a2c.step(trajectory)
+
+        # time.sleep(3)
         wandb.log({'Number of steps': trajectory['rewards'].shape[0],
                    'Mean reward': torch.mean(trajectory['rewards']),
                    'Last step reward': trajectory['rewards'][-1],
@@ -131,7 +134,8 @@ def main():
                    'Value loss': step_results['value_loss'],
                    'Policy loss': step_results['policy_loss'],
                    'Action norm': step_results['action_norm'],
-                   'Policy entropy': step_results['entropy']},
+                   'Policy entropy': step_results['entropy'],
+                   'Gradient norm': step_results['grad_norm']},
                   step=ep)
 
         if (ep + 1) % wandb.config.ckpt_freq == 0:
