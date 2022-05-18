@@ -33,8 +33,8 @@ class UR5EnvGoal(UR5Env):
             rate.sleep()
         self.gazebo.pauseSim()
 
-        self.actions = [-0.1, 0.0, 0.1]
-        self.action_space = list(itertools.product(*[[-0.1, 0.0, 0.1]] * self.action_dim()))
+        self.actions = [-1.0, 0.0, 1.0]
+        self.action_space = list(itertools.product(*[self.actions] * self.action_dim()))
         rospy.logdebug("Finished UR5EnvGoal INIT...")
 
     def _reset_sim(self):

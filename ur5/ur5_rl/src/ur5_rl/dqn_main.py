@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-from typing import AsyncGenerator
 import wandb
+from tqdm import tqdm
 
 import gym
 import rospy
@@ -16,8 +16,8 @@ from ur5_rl.algorithms.dqn import DQNAgent, compute_td_loss
 from ur5_rl.algorithms.replay_buffer import ReplayBuffer
 from ur5_rl.dqn_utils import is_enough_ram, wait_for_keyboard_interrupt, linear_decay
 
-WANDB_RUN_NAME = 'dqn'
-WANDB_MODEL_CHECKPOINT_NAME = 'dqn-checkpoint'
+WANDB_RUN_NAME = 'dqn-vel-1'
+WANDB_MODEL_CHECKPOINT_NAME = 'dqn-vel-1-checkpoint'
 
 
 def read_params():
@@ -157,9 +157,10 @@ def main():
 
     n_lives = 5
 
+    rospy.loginfo('Starting training loop')
     state = env.reset()
-    for ep in range(start_ep, 2):
-        print('start_ep')
+    for ep in tqdm(range(start_ep, total_steps)):
+
         if not is_enough_ram():
             print('less that 100 Mb RAM available, freezing')
             print('make sure everything is ok and use KeyboardInterrupt to continue')
@@ -173,13 +174,13 @@ def main():
         # train
         s, a, rw, ns, done = exp_replay.sample(batch_size)
 
-        loss = compute_td_loss(s, a, rw, ns, done, agent, target_network)
-        print('computed_los')
+        loss = compute_td_loss(s, a, rw, ns, done, agent, target_network, device=wandb.config.device)
+
         loss.backward()
         grad_norm = nn.utils.clip_grad_norm_(agent.parameters(), max_grad_norm)
         optimizer.step()
         optimizer.zero_grad()
-        print('end of step')
+
         if ep % refresh_target_network_freq == 0:
             # Load agent weights into target_network
             target_network.load_state_dict(agent.state_dict())

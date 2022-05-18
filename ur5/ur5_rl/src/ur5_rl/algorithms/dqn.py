@@ -20,7 +20,8 @@ class DQNAgent(nn.Module):
         
     def forward(self, inputs):
         # Use your network to compute qvalues for given state
-        qvalues = self.__qnet(inputs)
+        model_device = next(self.parameters()).device
+        qvalues = self.__qnet(inputs.to(device=model_device))
 
         assert qvalues.requires_grad, "qvalues must be a torch tensor with grad"
         assert (
