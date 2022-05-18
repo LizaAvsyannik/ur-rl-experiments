@@ -7,7 +7,7 @@ from geometry_msgs.msg import Pose, Point
 from gazebo_msgs.msg import ModelState
 
 import numpy as np
-
+from gym.spaces import Tuple, Discrete
 
 class UR5EnvGoal(UR5Env):
     def __init__(self, controllers_list, link_names, joint_limits, target_limits, pub_topic_name):
@@ -32,6 +32,8 @@ class UR5EnvGoal(UR5Env):
             rate.sleep()
         self.gazebo.pauseSim()
 
+        self.actions = [-0.1, 0.0, 0.1]
+        self.action_space = Tuple([Discrete(len(self.actions)) * self.action_dim()])
         rospy.logdebug("Finished UR5EnvGoal INIT...")
 
     def _reset_sim(self):
@@ -111,7 +113,9 @@ class UR5EnvGoal(UR5Env):
     def _set_action(self, action):
         """Applies the given action to the simulation.
         """
-        self._publisher.move_joints(action.tolist())
+        chosen_action = self.action_space(action)
+        vel_action = [self.actions[i] for i in chosen_action]
+        self._publisher.move_joints(vel_action)
 
     def _is_done(self):
         """Checks if episode done based on observations given.
