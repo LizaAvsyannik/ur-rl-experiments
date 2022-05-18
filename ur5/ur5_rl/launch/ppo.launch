@@ -4,6 +4,10 @@
 
 <!-- <include file="$(find ur5_gazebo)/launch/ur5_cubes.launch" /> -->
     <rosparam command="load" file="$(find ur5_rl)/config/reach_goal_params.yaml" />
+    <param name="n_episodes" value="10000"/>
+    <param name="n_steps_per_episode" value="250"/>
+    <param name="learning_rate" value="0.001"/>
+    <param name="ckpt_freq" value="250"/>
     <param name="ckpt_file" value="$(arg model_ckpt_file)"/>
     <param name="num_runner_epochs" value="3"/>
     <param name="num_runner_minibatches" value="16"/>
