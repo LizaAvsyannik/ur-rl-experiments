@@ -31,20 +31,23 @@ class A2CModel(nn.Module):
         self.state_dim = state_dim
         self.n_actions = n_actions
         self.eps = eps
-        self.__backbone = nn.Sequential(LinearBlock(state_dim, 64),
-                                        nn.GELU(),
-                                        LinearBlock(64, 128),
-                                        nn.GELU())
-        self.__munet = nn.Sequential(LinearBlock(128, n_actions, n_layers=2),
+        self.__munet = nn.Sequential(LinearBlock(state_dim, 64),
+                                     nn.GELU(),
+                                     LinearBlock(64, 128),
+                                     nn.GELU(),
+                                     LinearBlock(128, n_actions, n_layers=2),
                                      nn.Tanh())
-        self.__varnet = nn.Sequential(LinearBlock(128, n_actions, n_layers=2),
+        self.__varnet = nn.Sequential(LinearBlock(state_dim, 64),
+                                      nn.GELU(),
+                                      LinearBlock(64, 128),
+                                      nn.GELU(),
+                                      LinearBlock(128, n_actions, n_layers=2),
                                       nn.Sigmoid())
         self.__vnet = nn.Sequential(LinearBlock(state_dim, 64),
                                     nn.ReLU(),
                                     LinearBlock(64, 64),
                                     nn.ReLU(),
                                     nn.Linear(64, 1))
-        self.__initialize_net_weights(self.__backbone, scale=2**0.5)
         self.__initialize_net_weights(self.__munet, scale=2**0.5)
         self.__initialize_net_weights(self.__varnet, scale=2**0.5)
         self.__initialize_net_weights(self.__vnet, scale=2**0.5)
@@ -57,9 +60,8 @@ class A2CModel(nn.Module):
                 nn.init.orthogonal_(p, scale)
 
     def forward(self, inputs):
-        inner = self.__backbone(inputs)
-        mus = self.__munet(inner)
-        vars = self.__varnet(inner)
+        mus = self.__munet(inputs)
+        vars = self.__varnet(inputs)
         v = self.__vnet(inputs)
         return mus, vars + self.eps, v
 

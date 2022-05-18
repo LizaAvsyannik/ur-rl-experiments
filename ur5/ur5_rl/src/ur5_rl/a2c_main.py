@@ -71,7 +71,7 @@ def run_episode(env, policy, n_steps):
         if done:
             break
 
-    trajectory['rewards'] = F.normalize(torch.vstack(trajectory['rewards']))
+    trajectory['rewards'] = F.normalize(torch.vstack(trajectory['rewards']).ravel(), dim=-1)
 
     return trajectory
 
