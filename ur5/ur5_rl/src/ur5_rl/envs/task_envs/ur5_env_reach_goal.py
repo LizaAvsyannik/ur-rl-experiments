@@ -25,14 +25,11 @@ class UR5EnvGoal(UR5Env):
         self.__prev_distance = None
         # Create publisher for robot movement
         self.gazebo.unpauseSim()
-        print(self.ns, pub_topic_name)
         self._publisher = JointGroupPublisher('/' + self.ns + pub_topic_name, self.controllers_object)
         self._set_model_state = rospy.Publisher('/' + self.ns + "/gazebo/set_model_state", ModelState, queue_size=1)
-        rate = rospy.Rate(120)
         while (self._set_model_state.get_num_connections() == 0):
             rospy.logdebug(
-                f"No publishers to {self.ns}/gazebo/set_link_state yet so we wait and try again")
-            rate.sleep()
+                f"No publishers to /{self.ns}/gazebo/set_link_state yet so we wait and try again")
         self.gazebo.pauseSim()
 
         rospy.logdebug("Finished UR5EnvGoal INIT...")

@@ -4,6 +4,7 @@ from ur5_rl.envs.robot_envs.ur5_state import UR5State
 from gazebo_msgs.msg import LinkStates, ContactsState
 from sensor_msgs.msg import JointState
 
+from time import sleep
 import numpy as np
 
 
@@ -138,21 +139,18 @@ class UR5Env(RobotGazeboEnv):
         Returns:
         xyz are the x,y,z coordinates of an end-effector in a Cartesian space.
         """
-        rate = rospy.Rate(60)
         while self._ur5_state.end_effector_position is None:
-            rate.sleep()
+            sleep(0.01)
         return self._ur5_state.end_effector_position
 
     def get_current_joint_states(self):
-        rate = rospy.Rate(60)
         while self._ur5_state.joint_states is None:
-            rate.sleep()
+            sleep(0.01)
         return self._ur5_state.joint_states
 
     def check_collisions(self):
-        rate = rospy.Rate(60)
         while self._ur5_state.had_collision is None:
-            rate.sleep()
+            sleep(0.01)
         return self._ur5_state.had_collision
 
     def _generate_random_pose(self, limits):

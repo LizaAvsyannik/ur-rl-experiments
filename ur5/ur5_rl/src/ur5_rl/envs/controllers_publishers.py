@@ -39,14 +39,12 @@ class JointGroupPublisher(Pub):
         Checks that all the publishers are working
         :return:
         """
-        rate = rospy.Rate(120)
         while (self._pub.get_num_connections() == 0):
             rospy.logdebug(
                 f"No subscribers to {self.topic_name} yet so we wait and try again")
             try:
                 self.cntrl_conn.start_controllers(
                     controllers_on=self.topic_name[1:-8])
-                rate.sleep()
             except rospy.ROSInterruptException:
                 # This is to avoid error when world is rested, time when backwards.
                 pass

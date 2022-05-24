@@ -1,6 +1,7 @@
 import rospy
+import numpy as np
+import torch
 import gym
-from gym.utils import seeding
 from .gazebo_connection import GazeboConnection
 from .controllers_connection import ControllersConnection
 
@@ -10,13 +11,13 @@ class RobotGazeboEnv(gym.Env):
         self.controllers_list = [ns + '/' + ctrl for ctrl in controllers_list]
         self.gazebo = GazeboConnection(ns)
         self.controllers_object = ControllersConnection(ns, controllers_list=controllers_list)
-        self.seed()
+        self.seed(1000 * int(ns) + 7)
         self.episode_num = 0
 
     # Env methods
     def seed(self, seed=None):
-        self.np_random, seed = seeding.np_random(seed)
-        return [seed]
+        np.random.seed(seed)
+        torch.random.manual_seed(seed)
 
     def step(self, action):
         """

@@ -12,8 +12,6 @@ class GazeboConnection():
         self.ns = ns
         self._get_physics = rospy.ServiceProxy('/' + self.ns + '/gazebo/get_physics_properties', GetPhysicsProperties)
         self._set_physics = rospy.ServiceProxy('/' + self.ns + '/gazebo/set_physics_properties', SetPhysicsProperties)
-        print(getattr(rospy.client.get_master(), 'uri'))
-        print(rospy.client.get_published_topics())
         
         rospy.wait_for_service('/' + self.ns + '/gazebo/get_physics_properties')
         self._physics_properties = self._get_physics()

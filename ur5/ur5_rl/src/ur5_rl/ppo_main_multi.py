@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
 import wandb
+import argparse
+import multiprocessing as mp
 
-import gym
-import rospy
+import yaml
 import numpy as np
 import torch
 from torch import optim
@@ -14,46 +15,38 @@ from ur5_rl.envs.multiprocessing import GazeboMaster
 
 from ur5_rl.algorithms.ppo import PPOAgent, PPOPolicy, PPO, make_ppo_runner
 
-WANDB_RUN_NAME = 'lapka-ppo-fixed'
-WANDB_MODEL_CHECKPOINT_NAME = 'lapka-ppo-fixed'
+WANDB_RUN_NAME = 'lapka-ppo-multi'
+WANDB_MODEL_CHECKPOINT_NAME = 'lapka-ppo-multi'
 
 
-def read_params():
-    config = {}
-    config['n_episodes'] = rospy.get_param("/n_episodes")
-    config['n_steps_per_episode'] = rospy.get_param("/n_steps_per_episode")
-    config['learning_rate'] = rospy.get_param("/learning_rate")
-    config['ckpt_freq'] = rospy.get_param("/ckpt_freq")
+def read_params(args):
+    with open(args.params_path, 'r') as params_stream:
+        config = yaml.safe_load(params_stream)
     config['device'] = 'cuda' if torch.cuda.is_available() else 'cpu'
-    config['ckpt_file'] = rospy.get_param('ckpt_file', '')
-    config['num_runner_epochs'] = rospy.get_param('num_runner_epochs')
-    config['num_runner_minibatches'] = rospy.get_param('num_runner_minibatches')
+    config['ckpt_file'] = args.ckpt_file
 
-    controllers_list = rospy.get_param("/controllers_list")
-    joint_names = rospy.get_param("/joint_names")
-    link_names = rospy.get_param("/link_names")
+    controllers_list = config["controllers_list"]
+    joint_names = config["joint_names"]
+    link_names = config["link_names"]
 
     joint_limits = {}
     joint_limits['lower'] = list(
-        map(lambda x: x * np.pi, rospy.get_param("/joint_limits/lower")))
+        map(lambda x: x * np.pi, config["joint_limits"]["lower"]))
     joint_limits['upper'] = list(
-        map(lambda x: x * np.pi, rospy.get_param("/joint_limits/upper")))
+        map(lambda x: x * np.pi, config["joint_limits"]["upper"]))
 
     target_limits = {}
-    target_limits['radius'] = rospy.get_param("/target_limits/radius")
-    target_limits['target_size'] = rospy.get_param(
-        "/target_limits/target_size")
+    target_limits['radius'] = config["target_limits"]["radius"]
+    target_limits['target_size'] = config["target_limits"]["target_size"]
 
     return config, controllers_list, \
         joint_names, link_names, joint_limits, target_limits
 
 
-def main():
-    rospy.init_node('ur_gym', anonymous=False, log_level=rospy.INFO)
-
-    rospy.loginfo('Reading parameters...')
-    config, controllers_list, joint_names, link_names, joint_limits, target_limits = read_params()
-    rospy.loginfo('Finished reading parameters')
+def main(args):
+    print('Reading parameters...')
+    config, controllers_list, joint_names, link_names, joint_limits, target_limits = read_params(args)
+    print('Finished reading parameters')
 
     wandb_run = wandb.init(project="my-rl-lapka", entity="liza-avsyannik",
                            name=WANDB_RUN_NAME, config=config)
@@ -61,11 +54,13 @@ def main():
     env_kwargs = {'controllers_list': controllers_list, 'joint_limits': joint_limits, 'link_names': link_names,
                   'target_limits': target_limits, 'pub_topic_name': f'/{controllers_list[0]}/command'}
     kwargs = {'nenvs': wandb.config.nenvs,
-              'ros_master_ports': list(range(10350, 10350 + wandb.config.nenvs)),
+              'env_cls': UR5EnvGoal,
               'gazebo_ports': list(range(10450, 10450 + wandb.config.nenvs)),
               'launch_files': [wandb.config.world_launch_file],
               'env_kwargs': env_kwargs}
-    env = gym.make('UR5MultiEnvGoal-v0', **kwargs)
+    # env = gym.make('UR5MultiEnvGoal-v0', **kwargs)
+    env = GazeboMaster(**kwargs)
+    env.start()
 
     start_ep = 0
     model = PPOAgent(env.state_dim(), env.action_dim()).to(wandb.config.device)
@@ -73,7 +68,7 @@ def main():
     optimizer = torch.optim.Adam(model.parameters(), lr=wandb.config.learning_rate, eps=1e-5)
     
     if wandb.config.ckpt_file:
-        rospy.loginfo(f'Loading model from {wandb.config.ckpt_file}')
+        print(f'Loading model from {wandb.config.ckpt_file}')
         saved_state = torch.load(wandb.config.ckpt_file)
         start_ep = saved_state['episode']
         model.load_state_dict(saved_state['model_state'])
@@ -88,7 +83,7 @@ def main():
                                                             (wandb.config.n_episodes - epoch + 1))
     ppo = PPO(policy, optimizer)
 
-    rospy.loginfo('Starting training loop')
+    print('Starting training loop')
     MINIBATCHES_IN_EPOCH = wandb.config.num_runner_epochs * wandb.config.num_runner_minibatches
 
     for ep in tqdm(range(start_ep, wandb.config.n_episodes), desc='Episode'):
@@ -109,7 +104,7 @@ def main():
                   step=ep)
 
         if (ep + 1) % wandb.config.ckpt_freq == 0:
-            rospy.loginfo('Saving model checkpoint')
+            print('Saving model checkpoint')
             model_artifact = wandb.Artifact(name=WANDB_MODEL_CHECKPOINT_NAME,
                                             type='model')
             torch.save({'episode': ep,
@@ -128,4 +123,9 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--params_path', type=str,
+                        default='/home/ros/catkin_ws/src/ur-rl-experiments/ur5/ur5_rl/config/ppo_multi.yaml')
+    parser.add_argument('--ckpt_file', type=str, default=None)
+    args = parser.parse_args()
+    main(args)

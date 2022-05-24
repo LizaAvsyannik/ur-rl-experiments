@@ -1,7 +1,7 @@
 """ RL env runner """
 from collections import defaultdict
 import numpy as np
-from torch import TracingState
+import torch
 
 
 class EnvRunner:

@@ -1,5 +1,5 @@
 import torch
-from torch import nn
+from torch import device, nn
 import numpy as np
 from math import ceil
 from ur5_rl.algorithms.runner import EnvRunner
@@ -64,18 +64,17 @@ class PPOPolicy:
         if training:
             self.model.train()
             mean, cov, value = self.model(inputs)
-            print(mean, cov)
             return {'distribution': torch.distributions.MultivariateNormal(mean, torch.diag_embed(cov)),
-                    'values': value}
+                    'values': value.squeeze()}
         else:
             with torch.no_grad():
                 self.model.eval()
                 mean, cov, value = self.model(inputs)
                 dist = torch.distributions.MultivariateNormal(mean, torch.diag_embed(cov))
                 actions = dist.sample()
-                return {'actions': actions.cpu().numpy(),
-                        'log_probs': dist.log_prob(actions).cpu().numpy(),
-                        'values': value.squeeze().cpu().numpy()}
+                return {'actions': actions.cpu(),
+                        'log_probs': dist.log_prob(actions).cpu(),
+                        'values': value.squeeze().cpu()}
 
 
 class PPO:
@@ -109,7 +108,7 @@ class PPO:
         """ Computes and returns value loss on a given trajectory. """
         old_values = trajectory['values']
         predicted_values = act['values']
-        target_values = trajectory['value_targets'].unsqueeze(-1)
+        target_values = trajectory['value_targets']
         l_simple = (predicted_values - target_values) ** 2
         clipped_diff = torch.clamp(predicted_values - old_values,
                                    -self.cliprange,
@@ -154,7 +153,7 @@ class GAE:
         N = trajectory['values'].shape[0]
         rewards = trajectory['rewards']
         values = trajectory['values']
-        resets = trajectory['resets'].byte()
+        resets = trajectory['resets']
         latest_obs = torch.Tensor(trajectory['state']['latest_observation']).to(self.policy.device)
         # training to avoid creating tensor
         latest_v = self.policy.estimate_v(latest_obs).squeeze().unsqueeze(0)
@@ -174,16 +173,16 @@ class GAE:
             advantages.append(advantage)
         advantages = advantages[::-1]
         trajectory['advantages'] = torch.cat(advantages[:-1], dim=0)
-        print(trajectory['advantages'])
         trajectory['value_targets'] = trajectory['advantages'] + values[:-1]
 
 
 class TrajectorySampler:
     """ Samples minibatches from trajectory for a number of epochs. """
-    def __init__(self, runner, num_epochs, num_minibatches, transforms=None):
+    def __init__(self, runner, num_epochs, num_minibatches, device, transforms=None):
         self.runner = runner
         self.num_epochs = num_epochs
         self.num_minibatches = num_minibatches
+        self.device = device
         self.transforms = transforms or []
         self.minibatch_count = 0
         self.epoch_count = 0
@@ -202,7 +201,7 @@ class TrajectorySampler:
         permutation_slice = self.permutation[idx*mb_size:(idx+1)*mb_size]
         minibatch = {}
         for k, v in self.trajectory.items():
-            if k != 'state':
+            if k not in ['state']:
                 minibatch[k] = v[permutation_slice]
         return minibatch
     
@@ -211,7 +210,7 @@ class TrajectorySampler:
 
         Should be called at the beginning of each epoch.
         """
-        self.permutation = torch.randperm(self.trajectory_length)
+        self.permutation = torch.randperm(self.trajectory_length).to(self.device)
     
     def get_next(self):
         """ Returns next minibatch.  """
@@ -258,28 +257,21 @@ class AsTensor:
 
     def __call__(self, trajectory):
         # Modify trajectory inplace. 
-        for k, v in filter(lambda kv: kv[0] != "state",
-                           trajectory.items()):
+        for k, v in trajectory.items():
+            if k in ['state']:
+                continue
+            print(k)
             if not torch.is_tensor(v[0]):
                 trajectory[k] = torch.Tensor(v).to(self.device)
             else: 
-                trajectory[k] = torch.vstack(v).to(self.device)
-
-
-class FlattenTrajectory:
-    def __call__(self, trajectory):
-        n_steps, n_envs = trajectory['values'].shape[:2]
-        for k, v in filter(lambda kv: kv[0] != "state",
-                           trajectory.items()):
-            trajectory[k] = trajectory[k].reshape(n_steps * n_envs, -1).squeeze()
+                trajectory[k] = torch.stack(v).to(self.device)
 
 
 def make_ppo_runner(env, policy, num_runner_steps=2048,
                     gamma=0.99, lambda_=0.95, 
                     num_epochs=10, num_minibatches=32):
     """ Creates runner for PPO algorithm. """
-    runner_transforms = [AsArray(),
-                         AsTensor(policy.device),  # changed this to better suit torch
+    runner_transforms = [AsTensor(policy.device),  # changed this to better suit torch
                          GAE(policy, gamma=gamma, lambda_=lambda_)]
     runner = EnvRunner(env, policy, num_runner_steps,
                        transforms=runner_transforms)
@@ -287,5 +279,6 @@ def make_ppo_runner(env, policy, num_runner_steps=2048,
     sampler_transforms = [NormalizeAdvantages()]
     sampler = TrajectorySampler(runner, num_epochs=num_epochs, 
                                 num_minibatches=num_minibatches,
+                                device=policy.device,
                                 transforms=sampler_transforms)
     return sampler
