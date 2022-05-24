@@ -12,6 +12,7 @@ class RLObservation:
         self._target_position = torch.Tensor(target_position)
 
     def get_model_input(self):
+        """ Returns a CPU tensor of shape (self.dim(),)"""
         return torch.hstack([self._joint_positions, self._joint_velocities,
                             #  self._joint_positions - self._lower_limits,
                             #  self._upper_limits - self._joint_positions,

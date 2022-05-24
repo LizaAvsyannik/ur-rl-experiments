@@ -42,7 +42,7 @@ class JointGroupPublisher(Pub):
         rate = rospy.Rate(120)
         while (self._pub.get_num_connections() == 0):
             rospy.logdebug(
-                "No subscribers to joint_group_velocity_controller yet so we wait and try again")
+                f"No subscribers to {self.topic_name} yet so we wait and try again")
             try:
                 self.cntrl_conn.start_controllers(
                     controllers_on=self.topic_name[1:-8])

@@ -8,9 +8,9 @@ import numpy as np
 
 
 class UR5Env(RobotGazeboEnv):
-    def __init__(self, controllers_list, link_names, joint_limits):
+    def __init__(self, ns, controllers_list, link_names, joint_limits):
         rospy.logdebug("Start UR5Env INIT...")
-        RobotGazeboEnv.__init__(self, controllers_list=controllers_list)
+        RobotGazeboEnv.__init__(self, ns, controllers_list=controllers_list)
         
         self.link_names = link_names
         self._joint_limits = joint_limits
@@ -21,11 +21,11 @@ class UR5Env(RobotGazeboEnv):
         self.controllers_object.reset_controllers(self.controllers_list)
 
         # Subscribe link and joint states 
-        self._get_link_states = rospy.Subscriber("/gazebo/link_states", LinkStates,
+        self._get_link_states = rospy.Subscriber('/' + self.ns + "/gazebo/link_states", LinkStates,
                             self.link_state_callback, queue_size=1)
-        self._get_joint_states = rospy.Subscriber("/joint_states", JointState,
+        self._get_joint_states = rospy.Subscriber('/' + self.ns + "/joint_states", JointState,
                             self.joint_states_callback, queue_size=1)
-        self._collision_sensors = [rospy.Subscriber(f"/{name}_collision_sensor", ContactsState,
+        self._collision_sensors = [rospy.Subscriber('/' + self.ns + f"/{name}_collision_sensor", ContactsState,
                             self.contact_state_callback, queue_size=1) for name in self.link_names]
         rospy.logdebug("Subscribed to states")
         self._check_all_systems_ready()
@@ -43,7 +43,7 @@ class UR5Env(RobotGazeboEnv):
         while link_states_msg is None and not rospy.is_shutdown():
             try:
                 link_states_msg = rospy.wait_for_message(
-                    "/gazebo/link_states", LinkStates, timeout=0.1)
+                    '/' + self.ns + "/gazebo/link_states", LinkStates, timeout=0.1)
                 self.link_state = link_states_msg
                 rospy.logdebug("Current link_states READY")
             except Exception as e:
@@ -54,7 +54,7 @@ class UR5Env(RobotGazeboEnv):
         while joint_states_msg is None and not rospy.is_shutdown():
             try:
                 joint_states_msg = rospy.wait_for_message(
-                    "/joint_states", JointState, timeout=0.1)
+                    '/' + self.ns + "/joint_states", JointState, timeout=0.1)
                 rospy.logdebug("Current joint_states READY")
             except Exception as e:
                 self.controllers_object.start_controllers(
@@ -63,7 +63,7 @@ class UR5Env(RobotGazeboEnv):
                     "Current joint_states not ready yet, retrying==>"+str(e))
 
         for name in self.link_names:
-            topic = f'/{name}_collision_sensor'
+            topic = '/' + self.ns + f'/{name}_collision_sensor'
             msg = None
             while msg is None and not rospy.is_shutdown():
                 try:

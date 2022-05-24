@@ -11,8 +11,9 @@
   <arg name="rate"       default="125" />
   <arg name="world_name" default="$(find ur5_gazebo)/worlds/ur5_setup.world" />
   
-  <group ns="ur5">
-    <remap from="/clock" to="/ur5/clock"/>
+  <group ns="1">
+    <remap from="/clock" to="/1/clock"/>
+    <env name="GAZEBO_MASTER_URI" value="http://localhost:11345"/>
     <!-- Start up simulated world -->
     <include file="$(find gazebo_ros)/launch/empty_world.launch">
       <arg name="world_name" value="$(arg world_name)"/>
@@ -23,23 +24,22 @@
 
     <!-- Send robot urdf to param server -->
     <param name="robot_description" command="$(find xacro)/xacro --inorder '$(find ur5_description)/urdf/ur5_robotiq85_gripper.urdf.xacro'" />
+
     <!-- Spawn robot in gazebo (and move it upwards):
         better initial values should be -2.355 and 1.57 but the robot does
         something strange when unpausing it
     -->
     <node name="spawn_gazebo_model" pkg="gazebo_ros" type="spawn_model"
           args="-urdf -param robot_description -model robot -z 1.0
-                -gazebo_namespace /ur5/gazebo
+                -gazebo_namespace /1/gazebo
                 -J shoulder_lift_joint -1.8
                 -J elbow_joint 1.0"
           output="screen" />
 
     <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher">
       <param name="/use_gui" value="false"/>
-      <param name="/rate" value="120"/>
+      <param name="/rate" value="$(arg rate)"/>
     </node>
-
-    <!-- <include file="$(find ur5_gazebo)/launch/ur5_controllers.launch"/> -->
 
     <!-- Controllers config -->
     <rosparam file="$(find ur5_gazebo)/controller/ur5gripper_controllers.yaml"
@@ -47,6 +47,53 @@
 
     <!-- Load controllers -->
     <node name="robot_controllers" pkg="controller_manager" type="spawner"
+          output="screen"
+          args="joint_group_velocity_controller gripper_controller joint_state_controller"/>
+
+    <!-- TF -->
+    <node pkg="robot_state_publisher" type="robot_state_publisher"
+          name="robot_state_publisher">
+      <param name="publish_frequency"  type="double" value="120" />
+    </node>
+  </group>
+  
+  <group ns="2">
+    <remap from="/clock" to="/2/clock"/>
+    <env name="GAZEBO_MASTER_URI" value="http://localhost:11346"/>
+    <!-- Start up simulated world -->
+    <include file="$(find gazebo_ros)/launch/empty_world.launch">
+      <arg name="world_name" value="$(arg world_name)"/>
+      <arg name="paused"     value="$(arg paused)"/>
+      <arg name="debug"      value="$(arg debug)"/>
+      <arg name="gui"        value="$(arg gui)"/>
+    </include>
+
+    <!-- Send robot urdf to param server -->
+    <param name="robot_description" command="$(find xacro)/xacro --inorder '$(find ur5_description)/urdf/ur5_robotiq85_gripper.urdf.xacro'" />
+
+    <!-- Spawn robot in gazebo (and move it upwards):
+        better initial values should be -2.355 and 1.57 but the robot does
+        something strange when unpausing it
+    -->
+    <node name="spawn_gazebo_model" pkg="gazebo_ros" type="spawn_model"
+          args="-urdf -param robot_description -model robot -z 1.0
+                -gazebo_namespace /2/gazebo
+                -J shoulder_lift_joint -1.8
+                -J elbow_joint 1.0"
+          output="screen" />
+
+    <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher">
+      <param name="/use_gui" value="false"/>
+      <param name="/rate" value="$(arg rate)"/>
+    </node>
+
+    <!-- Controllers config -->
+    <rosparam file="$(find ur5_gazebo)/controller/ur5gripper_controllers.yaml"
+              command="load" />
+
+    <!-- Load controllers -->
+    <node name="robot_controllers" pkg="controller_manager" type="spawner"
+          output="screen"
           args="joint_group_velocity_controller gripper_controller joint_state_controller"/>
 
     <!-- TF -->

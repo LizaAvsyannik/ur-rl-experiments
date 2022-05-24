@@ -4,7 +4,7 @@ import numpy as np
 from math import ceil
 from ur5_rl.algorithms.runner import EnvRunner
 
-DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
+from .nn_utils import LinearBlock
 
 class PPOAgent(nn.Module):
     def __init__(self, state_dim, n_actions, eps=1e-8):
@@ -12,42 +12,42 @@ class PPOAgent(nn.Module):
         self.state_dim = state_dim
         self.n_actions = n_actions
         self.eps = eps
-        self.policy_nn = nn.Sequential(nn.Linear(self.state_dim, 128),
-                                       nn.ReLU(),
-                                       nn.Linear(128, 64),
-                                       nn.ReLU(),
-                                       nn.Linear(64, self.n_actions),
-                                       nn.Tanh())
-        self.value_nn = nn.Sequential(nn.Linear(self.state_dim, 128),
+        self.__munet = nn.Sequential(LinearBlock(state_dim, 128),
+                                     nn.GELU(),
+                                     LinearBlock(128, 128),
+                                     nn.GELU(),
+                                     LinearBlock(128, n_actions, n_layers=2),
+                                     nn.Tanh())
+        self.__varnet = nn.Sequential(LinearBlock(state_dim, 128),
+                                      nn.GELU(),
+                                      LinearBlock(128, 128),
+                                      nn.GELU(),
+                                      LinearBlock(128, n_actions, n_layers=2),
+                                      nn.Sigmoid())
+        self.value_nn = nn.Sequential(LinearBlock(state_dim, 64),
                                       nn.ReLU(),
-                                      nn.Linear(128, 64),
+                                      LinearBlock(64, 64),
                                       nn.ReLU(),
                                       nn.Linear(64, 1))
-        self.var_nn = nn.Sequential(nn.Linear(self.state_dim, 128),
-                                    nn.ReLU(),
-                                    nn.Linear(128, 64),
-                                    nn.ReLU(),
-                                    nn.Linear(64, self.n_actions),
-                                    nn.Sigmoid())
-        self.__initialize_net_weights(self.policy_nn)
-        self.__initialize_net_weights(self.value_nn)
-        self.__initialize_net_weights(self.var_nn)
+        self.__initialize_net_weights(self.__munet, scale=2**0.5)
+        self.__initialize_net_weights(self.__varnet, scale=2**0.5)
+        self.__initialize_net_weights(self.value_nn, scale=2**0.5)
 
-    def __initialize_net_weights(self, net):
+    def __initialize_net_weights(self, net, scale):
         for p in net.parameters():
             if p.ndim < 2:
                 nn.init.zeros_(p)
             else:
-                nn.init.orthogonal_(p, 2 ** 0.5)
+                nn.init.orthogonal_(p, scale)
                 
     def forward(self, observations):
-        policy_mean = self.policy_nn(observations)
-        var = self.var_nn(observations)
+        policy_mean = self.__munet(observations)
+        var = self.__varnet(observations)
         value = self.value_nn(observations)
         return policy_mean, var + self.eps, value
 
 
-class Policy:
+class PPOPolicy:
     def __init__(self, model, device):
         self.model = model
         self.device = device
@@ -70,8 +70,8 @@ class Policy:
         else:
             with torch.no_grad():
                 self.model.eval()
-                mean, cov, value = self.model(inputs.unsqueeze(0))
-                dist = torch.distributions.MultivariateNormal(mean.squeeze(), torch.diag_embed(cov.squeeze()))
+                mean, cov, value = self.model(inputs)
+                dist = torch.distributions.MultivariateNormal(mean, torch.diag_embed(cov))
                 actions = dist.sample()
                 return {'actions': actions.cpu().numpy(),
                         'log_probs': dist.log_prob(actions).cpu().numpy(),
@@ -122,7 +122,7 @@ class PPO:
         act = self.policy.act(trajectory["observations"], training=True)
         policy_loss, entropy = self.policy_loss(trajectory, act)
         value_loss = self.value_loss(trajectory, act)
-        return {'loss/total': policy_loss + self.value_loss_coef * value_loss - self.entropy_coef * entropy,
+        return {'loss/total': policy_loss + self.value_loss_coef * value_loss,  # - self.entropy_coef * entropy,
                 'loss/policy': policy_loss.detach().cpu().item(),
                 'loss/value': value_loss.detach().cpu().item(),
                 'policy/entropy': entropy}
@@ -146,9 +146,14 @@ class GAE:
         self.lambda_ = lambda_
         
     def __call__(self, trajectory):
+        """ trajectory contains tensors of shapes
+            values - (nsteps, nenvs,)
+            rewards - (nsteps, nenvs,)
+            resets - (nsteps, nenvs,)
+        """
         N = trajectory['values'].shape[0]
         rewards = trajectory['rewards']
-        values = trajectory['values'].squeeze()
+        values = trajectory['values']
         resets = trajectory['resets'].byte()
         latest_obs = torch.Tensor(trajectory['state']['latest_observation']).to(self.policy.device)
         # training to avoid creating tensor
@@ -168,8 +173,9 @@ class GAE:
                                      self.gamma * self.lambda_ * advantages[-1])
             advantages.append(advantage)
         advantages = advantages[::-1]
-        trajectory['advantages'] = torch.cat(advantages[:-1], dim=0).squeeze()
-        trajectory['value_targets'] = trajectory['advantages'] + values[:-1]   
+        trajectory['advantages'] = torch.cat(advantages[:-1], dim=0)
+        print(trajectory['advantages'])
+        trajectory['value_targets'] = trajectory['advantages'] + values[:-1]
 
 
 class TrajectorySampler:
@@ -247,14 +253,17 @@ class AsTensor:
     """ 
     Converts lists of interactions to DEVICE torch.Tensor.
     """
+    def __init__(self, device):
+        self.device = device
+
     def __call__(self, trajectory):
         # Modify trajectory inplace. 
         for k, v in filter(lambda kv: kv[0] != "state",
                            trajectory.items()):
             if not torch.is_tensor(v[0]):
-                trajectory[k] = torch.Tensor(v).to(DEVICE)
+                trajectory[k] = torch.Tensor(v).to(self.device)
             else: 
-                trajectory[k] = torch.vstack(v).to(DEVICE)
+                trajectory[k] = torch.vstack(v).to(self.device)
 
 
 class FlattenTrajectory:
@@ -270,7 +279,7 @@ def make_ppo_runner(env, policy, num_runner_steps=2048,
                     num_epochs=10, num_minibatches=32):
     """ Creates runner for PPO algorithm. """
     runner_transforms = [AsArray(),
-                         AsTensor(),  # changed this to better suit torch
+                         AsTensor(policy.device),  # changed this to better suit torch
                          GAE(policy, gamma=gamma, lambda_=lambda_)]
     runner = EnvRunner(env, policy, num_runner_steps,
                        transforms=runner_transforms)

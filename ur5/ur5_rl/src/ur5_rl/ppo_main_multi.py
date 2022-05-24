@@ -10,6 +10,7 @@ from torch import optim
 from math import ceil
 from tqdm import tqdm
 from ur5_rl.envs.task_envs import UR5EnvGoal
+from ur5_rl.envs.multiprocessing import GazeboMaster
 
 from ur5_rl.algorithms.ppo import PPOAgent, PPOPolicy, PPO, make_ppo_runner
 
@@ -48,7 +49,7 @@ def read_params():
 
 
 def main():
-    rospy.init_node('ur_gym', anonymous=False, log_level=rospy.DEBUG)
+    rospy.init_node('ur_gym', anonymous=False, log_level=rospy.INFO)
 
     rospy.loginfo('Reading parameters...')
     config, controllers_list, joint_names, link_names, joint_limits, target_limits = read_params()
@@ -57,9 +58,14 @@ def main():
     wandb_run = wandb.init(project="my-rl-lapka", entity="liza-avsyannik",
                            name=WANDB_RUN_NAME, config=config)
 
-    kwargs = {'ns': 'ur5', 'controllers_list': controllers_list, 'joint_limits': joint_limits, 'link_names': link_names,
-              'target_limits': target_limits, 'pub_topic_name': f'/{controllers_list[0]}/command'}
-    env = gym.make('UR5EnvGoal-v0', **kwargs)
+    env_kwargs = {'controllers_list': controllers_list, 'joint_limits': joint_limits, 'link_names': link_names,
+                  'target_limits': target_limits, 'pub_topic_name': f'/{controllers_list[0]}/command'}
+    kwargs = {'nenvs': wandb.config.nenvs,
+              'ros_master_ports': list(range(10350, 10350 + wandb.config.nenvs)),
+              'gazebo_ports': list(range(10450, 10450 + wandb.config.nenvs)),
+              'launch_files': [wandb.config.world_launch_file],
+              'env_kwargs': env_kwargs}
+    env = gym.make('UR5MultiEnvGoal-v0', **kwargs)
 
     start_ep = 0
     model = PPOAgent(env.state_dim(), env.action_dim()).to(wandb.config.device)

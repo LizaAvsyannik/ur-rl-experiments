@@ -13,6 +13,9 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
 )
 
-catkin_install_python(PROGRAMS src/ur5_rl/a2c_main.py
+catkin_install_python(PROGRAMS
+  src/ur5_rl/a2c_main.py
+  src/ur5_rl/ppo_main.py
+  src/ur5_rl/ppo_main_multi.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )

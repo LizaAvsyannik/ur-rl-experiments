@@ -1,7 +1,7 @@
 import rospy
 from ur5_rl.envs.robot_envs import UR5Env
 from ur5_rl.envs import JointGroupPublisher
-from ur5_rl.envs.task_envs.RLObservation import RLObservation
+from ur5_rl.envs.RLObservation import RLObservation
 
 from geometry_msgs.msg import Pose, Point
 from gazebo_msgs.msg import ModelState
@@ -10,12 +10,14 @@ import numpy as np
 
 
 class UR5EnvGoal(UR5Env):
-    def __init__(self, controllers_list, link_names, joint_limits, target_limits, pub_topic_name):
+    def __init__(self, ns, controllers_list, link_names, joint_limits, target_limits, pub_topic_name):
         rospy.logdebug("Start UR5EnvGoal INIT...")
 
-        UR5Env.__init__(self, controllers_list=controllers_list,
-                              link_names=link_names,
-                              joint_limits=joint_limits)
+        self.ns = ns
+        UR5Env.__init__(self, ns=ns,
+                        controllers_list=controllers_list,
+                        link_names=link_names,
+                        joint_limits=joint_limits)
 
         self._target_limits = target_limits
 
@@ -23,12 +25,13 @@ class UR5EnvGoal(UR5Env):
         self.__prev_distance = None
         # Create publisher for robot movement
         self.gazebo.unpauseSim()
-        self._publisher = JointGroupPublisher(pub_topic_name, self.controllers_object)
-        self._set_model_state = rospy.Publisher("/gazebo/set_model_state", ModelState, queue_size=1)
+        print(self.ns, pub_topic_name)
+        self._publisher = JointGroupPublisher('/' + self.ns + pub_topic_name, self.controllers_object)
+        self._set_model_state = rospy.Publisher('/' + self.ns + "/gazebo/set_model_state", ModelState, queue_size=1)
         rate = rospy.Rate(120)
         while (self._set_model_state.get_num_connections() == 0):
             rospy.logdebug(
-                "No publishers to /gazebo/set_link_state yet so we wait and try again")
+                f"No publishers to {self.ns}/gazebo/set_link_state yet so we wait and try again")
             rate.sleep()
         self.gazebo.pauseSim()
 
@@ -59,7 +62,7 @@ class UR5EnvGoal(UR5Env):
             # has_collision = self._has_collision()
 
     def _set_init_pose(self, joint_limits):
-        """Sets the Robot in its init pose
+        """ Sets the Robot in its init pose
         """
         joints_array = self._generate_random_pose([joint_limits['lower'], joint_limits['upper']])
 
@@ -85,13 +88,13 @@ class UR5EnvGoal(UR5Env):
         self.__target_position[2] += 2 * self._target_limits['target_size'][2]
 
     def _init_env_variables(self):
-        """Inits variables needed to be initialised each time we reset at the start
+        """ Inits variables needed to be initialised each time we reset at the start
         of an episode.
         """
         self.__prev_distance = np.linalg.norm(np.array(self._ur5_state.end_effector_position) - self.__target_position)
 
     def _compute_reward(self, obs, done):
-        """Calculates the reward to give based on the observations given.
+        """ Calculates the reward to give based on the observations given.
         """
         collision_penalty = -5
         success_reward = 5
@@ -109,16 +112,18 @@ class UR5EnvGoal(UR5Env):
             return distance_reward + np.exp(-distance), done, {'distance': distance}
 
     def _set_action(self, action):
-        """Applies the given action to the simulation.
+        """ Applies the given action to the simulation.
+            actions - CPU tensor of shape (action_space_dim,)
         """
         self._publisher.move_joints(action.tolist())
 
     def _is_done(self):
-        """Checks if episode done based on observations given.
+        """ Checks if episode is done based on observations given.
         """
         return self._has_collision()
 
     def _get_obs(self):
+        """ Returns a CPU tensor of shape (self.obs_space_dim)"""
         joint_states = self.get_current_joint_states()
         end_effector_position = self.get_current_eef_position()
         return RLObservation(joint_states, end_effector_position,

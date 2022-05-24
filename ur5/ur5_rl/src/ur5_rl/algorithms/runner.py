@@ -18,7 +18,7 @@ class EnvRunner:
     @property
     def nenvs(self):
         """ Returns number of batched envs or `None` if env is not batched """
-        return getattr(self.env.unwrapped, "nenvs", None)
+        return getattr(self.env, 'nenvs', None)
 
     def reset(self):
         """ Resets env and runner states. """

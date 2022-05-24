@@ -6,18 +6,19 @@ from controller_manager_msgs.srv import UnloadController, UnloadControllerReques
 
 class ControllersConnection():
     
-    def __init__(self, controllers_list):
+    def __init__(self, ns, controllers_list):
         rospy.logdebug('Initializaing Controllers Connection...')
 
-        self.switch_service_name = '/controller_manager/switch_controller'
+        self.ns = ns
+        self.switch_service_name = '/' + self.ns + '/controller_manager/switch_controller'
         self.switch_service = rospy.ServiceProxy(
             self.switch_service_name, SwitchController)
 
-        self.load_service_name = '/controller_manager/load_controller'
+        self.load_service_name = '/' + self.ns + '/controller_manager/load_controller'
         self.load_service = rospy.ServiceProxy(
             self.load_service_name, LoadController)
 
-        self.unload_service_name = '/controller_manager/unload_controller'
+        self.unload_service_name = '/' + self.ns + '/controller_manager/unload_controller'
         self.unload_service = rospy.ServiceProxy(
             self.unload_service_name, UnloadController)
         
