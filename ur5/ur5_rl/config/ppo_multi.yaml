@@ -1,0 +1,61 @@
+
+n_episodes: 10000
+nenvs: 4
+n_steps_per_episode: 250
+learning_rate: 0.00001
+ckpt_freq: 250
+num_runner_epochs: 10
+num_runner_minibatches: 25
+world_launch_file: '/home/ros/catkin_ws/src/ur-rl-experiments/ur5/ur5_gazebo/launch/ur5_cubes.launch'
+
+controllers_list: # first always a controllers with which we will move the robot
+  - joint_group_velocity_controller
+  - joint_state_controller
+  - gripper_controller
+
+joint_names:
+  - shoulder_pan_joint
+  - shoulder_lift_joint
+  - elbow_joint
+  - wrist_1_joint
+  - wrist_2_joint
+  - wrist_3_joint
+
+link_names:
+  - shoulder_link
+  - upper_arm_link
+  - forearm_link
+  - wrist_1_link
+  - wrist_2_link
+  - robotiq_85_left_finger_tip_link
+  - robotiq_85_right_finger_tip_link
+  - robotiq_85_left_knuckle_link
+  - robotiq_85_right_knuckle_link
+  - robotiq_85_right_inner_knuckle_link
+  - robotiq_85_left_inner_knuckle_link
+
+joint_limits: # in pi
+  # always stick to the order as in joint_names
+  # limit elbow_joint in order to avoid self-collisio
+  lower:
+    - -2.0
+    - -2.0
+    - -0.75
+    - -2.0
+    - -2.0
+    - -2.0
+  upper:
+    - 2.0
+    - 2.0
+    - 0.75
+    - 2.0
+    - 2.0
+    - 2.0
+
+target_limits:
+  # we put target inside a circle of robot's reach
+  radius: 1.0
+  target_size:
+    - 0.05
+    - 0.05
+    - 0.05

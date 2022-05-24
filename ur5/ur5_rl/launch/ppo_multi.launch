@@ -2,10 +2,9 @@
 <launch>
     <arg name="model_ckpt_file" default=""/>
 
-<!-- <include file="$(find ur5_gazebo)/launch/ur5_cubes.launch" /> -->
     <rosparam command="load" file="$(find ur5_rl)/config/reach_goal_params.yaml" />
     <param name="n_episodes" value="10000"/>
-    <param name="nenvs" value="8"/>
+    <param name="nenvs" value="4"/>
     <param name="n_steps_per_episode" value="250"/>
     <param name="learning_rate" value="0.00001"/>
     <param name="ckpt_freq" value="250"/>
@@ -13,6 +12,6 @@
     <param name="num_runner_epochs" value="10"/>
     <param name="num_runner_minibatches" value="25"/>
     <param name="world_launch_file" value="$(find ur5_gazebo)/launch/ur5_cubes.launch"/>
-    <node pkg="ur5_rl" name="ur5_gym" type="ppo_main.py" output="screen" />
+    <node pkg="ur5_rl" name="ur5_gym" type="ppo_main_multi.py" output="screen" />
 
 </launch>

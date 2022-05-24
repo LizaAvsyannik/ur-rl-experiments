@@ -10,9 +10,10 @@
   <arg name="gui"        default="true"/>
   <arg name="rate"       default="125" />
   <arg name="world_name" default="$(find ur5_gazebo)/worlds/ur5_setup.world" />
+  <arg name="namespace"  default="ur5"/>
   
-  <group ns="ur5">
-    <remap from="/clock" to="/ur5/clock"/>
+  <group ns="$(arg namespace)">
+    <remap from="/clock" to="/$(arg namespace)/clock"/>
     <!-- Start up simulated world -->
     <include file="$(find gazebo_ros)/launch/empty_world.launch">
       <arg name="world_name" value="$(arg world_name)"/>
@@ -29,7 +30,7 @@
     -->
     <node name="spawn_gazebo_model" pkg="gazebo_ros" type="spawn_model"
           args="-urdf -param robot_description -model robot -z 1.0
-                -gazebo_namespace /ur5/gazebo
+                -gazebo_namespace /$(arg namespace)/gazebo
                 -J shoulder_lift_joint -1.8
                 -J elbow_joint 1.0"
           output="screen" />
