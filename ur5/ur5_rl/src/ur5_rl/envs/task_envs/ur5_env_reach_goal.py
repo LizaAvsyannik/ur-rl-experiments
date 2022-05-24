@@ -21,6 +21,7 @@ class UR5EnvGoal(UR5Env):
 
         self._target_limits = target_limits
 
+        self.__target_threshold = 0.3
         self.__target_position = None
         self.__prev_distance = None
         # Create publisher for robot movement
@@ -88,6 +89,8 @@ class UR5EnvGoal(UR5Env):
         """ Inits variables needed to be initialised each time we reset at the start
         of an episode.
         """
+        if (self.episode_num + 1) % 50 == 0:
+            self.__target_threshold -= 0.01
         self.__prev_distance = np.linalg.norm(np.array(self._ur5_state.end_effector_position) - self.__target_position)
 
     def _compute_reward(self, obs, done):
@@ -97,7 +100,7 @@ class UR5EnvGoal(UR5Env):
         success_reward = 5
 
         distance = np.linalg.norm(np.array(self._ur5_state.end_effector_position) - self.__target_position)
-        if distance <= 0.05:
+        if distance <= self.__target_threshold:
             rospy.logdebug('Reached goal')
             return success_reward, True, {'distance': distance}
         elif done:  # collision happened

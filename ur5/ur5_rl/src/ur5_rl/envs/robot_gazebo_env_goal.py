@@ -40,9 +40,9 @@ class RobotGazeboEnv(gym.Env):
         done = self._is_done()
         rospy.logdebug("Get Obs")
         obs = self._get_obs()
+        self.gazebo.pauseSim()
         reward, done, info = self._compute_reward(obs, done)
         self._reset_env_state()
-        self.gazebo.pauseSim()
         return obs, reward, done, info
 
     def reset(self):
@@ -55,7 +55,8 @@ class RobotGazeboEnv(gym.Env):
         self._update_episode()
         obs = self._get_obs()
         self._init_env_variables()
-        return obs
+        reward, done, info = self._compute_reward(obs, False)
+        return obs, reward, done, info
 
     def close(self):
         """

@@ -23,7 +23,7 @@ class GazeboRunner(mp.Process):
         self.launch.start(auto_terminate=False)  # start gazebo
         rospy.loginfo('Started gazebo runner')
         rospy.loginfo('Spinning')
-        self.launch.spin_once()  # start event loop
+        self.launch.spin()  # start event loop
 
 
 class GazeboEnvWorker(mp.Process):
@@ -56,9 +56,9 @@ class GazeboEnvWorker(mp.Process):
             if self.__done or action == 'reset':
                 self.__done = False
                 rospy.logwarn(f'Resetting in {self._ns}')
-                self._obs_slot.put([self.__env.reset(), 0.0, False, {}])
+                obs, reward, done, info = self.__env.reset()
             else:
                 rospy.logdebug('Stepping')
                 obs, reward, done, info = self.__env.step(action.clone())
                 self.__done = done
-                self._obs_slot.put([obs, reward, done, info])
+            self._obs_slot.put([obs, reward, done, info])

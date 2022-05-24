@@ -260,7 +260,6 @@ class AsTensor:
         for k, v in trajectory.items():
             if k in ['state']:
                 continue
-            print(k)
             if not torch.is_tensor(v[0]):
                 trajectory[k] = torch.Tensor(v).to(self.device)
             else: 
